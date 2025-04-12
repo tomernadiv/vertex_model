@@ -1,6 +1,5 @@
 from globals import *
 
-
 class Cell:
     def __init__(self, cell_index, nodes, height, neuron=False):
         """
