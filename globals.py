@@ -1,6 +1,5 @@
 import os
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import matplotlib.cm as cm
@@ -38,5 +37,5 @@ cell_initial_height = cell_volume / cell_initial_surface_area
 neuron_prob = 0.5 # probability of a cell being a neuron
 
 # mechanical properties
-
-
+spring_constant = 1.0 
+line_tension_constant = 1.0

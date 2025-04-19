@@ -34,7 +34,7 @@ class Tissue:
                     y = cy + self.cell_radius * math.sin(angle)
                     pos = round_pos(x, y)
                     if pos not in node_cache:
-                        self.graph.add_node(pos, pos=pos, neuron=False)
+                        self.graph.add_node(pos, pos=pos, neuron=False, force=np.array([0.0, 0.0]))
                         node_cache[pos] = pos
                     hex_nodes.append(node_cache[pos])
 
@@ -43,7 +43,7 @@ class Tissue:
                     n1 = hex_nodes[i]
                     n2 = hex_nodes[(i + 1) % 6]
                     if n1 != n2:
-                        self.graph.add_edge(n1, n2)
+                        self.graph.add_edge(n1, n2)                             
 
                 cell_index = int(row * self.num_cols + col)
                 height = cell_initial_height                # can be modified later with a smarter logic
@@ -52,9 +52,32 @@ class Tissue:
                 if is_neuron:
                     for node in hex_nodes:
                         self.graph.nodes[node]['neuron'] = True # set neuron flag for all vertices of the cell
+                else:
+                    for node in hex_nodes:
+                        self.graph.nodes[node]['neuron'] = False
+
 
                 # Create a Cell object and add it to the stack
                 self.cells.append(Cell(cell_index, hex_nodes, height, is_neuron))
+
+    def _compute_force(self, force_name: str, v1, v2):
+        """
+        Compute the force between two vertices using the specified force name.
+        The force name should match the method name in the class.
+        """
+        force_method = getattr(self, f"_f_{force_name}")
+        return force_method(v1, v2)
+    
+    def compute_all_forces(self, forces: list):
+        """
+        Compute the sum of forces acting on the vertices of the graph.
+        """
+       # iterate on nodes, then iterate on their neighbors and compute forces
+        for node in self.graph.nodes:
+            for neighbor in self.graph.neighbors(node):
+                for force_name in forces:
+                    force = self._compute_force(force_name, node, neighbor)
+                    self.graph.nodes[node]['force'] += force
 
 
     def plot_tissue(self, legend=False, timestamp=None):
@@ -100,3 +123,47 @@ class Tissue:
         plt.tight_layout()
         plt.show()
 
+    def _f_spring(self, v1, v2):
+        """
+        Calculate the spring force between two vertices.
+        """
+        dx = v2[0] - v1[0]
+        dy = v2[1] - v1[1]
+        dist = math.sqrt(dx**2 + dy**2)
+
+        # Avoid division by zero
+        if dist == 0:
+            return np.array([0.0, 0.0])
+        
+        force_magnitude = spring_constant * (dist - cell_initial_vertex_length)
+        force_vector = np.array([force_magnitude * dx / dist, force_magnitude * dy / dist])
+        return force_vector
+    
+    def _f_line_tension(self, v1, v2):
+        """
+        Calculate the line tension force between two vertices,
+        only if both vertices are neurons.
+        """
+        if not (self.graph.nodes[v1]['neuron'] and self.graph.nodes[v2]['neuron']):
+            return np.array([0.0, 0.0])
+
+        dx = v2[0] - v1[0]
+        dy = v2[1] - v1[1]
+        dist = math.sqrt(dx**2 + dy**2)
+
+        # Avoid division by zero
+        if dist == 0:
+            return np.array([0.0, 0.0])
+
+        unit_vector = np.array([dx / dist, dy / dist])
+        force_vector = line_tension_constant * unit_vector
+
+        return force_vector
+    
+
+    def update_position(self):
+        """
+        Update the position of each vertex based on the computed forces.
+        Dont forget to reset the forces after each update.
+        """
+        pass
