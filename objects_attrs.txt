@@ -1,0 +1,6 @@
+# NODE
+neuron: Bool
+boundary: Bool
+
+# EDGE
+edge_type: {"marginal" (membrane), "internal" (volume), "boundary"}

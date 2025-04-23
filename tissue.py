@@ -15,10 +15,10 @@ class Tissue:
 
         self._create_grid()
 
-    def _find_boundary_edges(self, G):
+    def _find_boundary(self, G):
         """Find the boundary edges of a hexagonal graph based on 'marginal' edges."""
         boundary_edges = []
-
+        boundary_nodes = set()
         for u, v, attrs in G.edges(data=True):
             edge_type = attrs.get('edge_type')
             if edge_type != 'marginal':
@@ -39,8 +39,9 @@ class Tissue:
             # If either node has fewer than 3 'marginal' connections, or both has exaactly 5 connections it's a boundary edge
             if (marginal_degree_u < 3 or marginal_degree_v < 3) or (G.degree(u) == 5 and G.degree(v) == 5):
                 boundary_edges.append((u, v))
+                boundary_nodes.update([u, v])
 
-        return boundary_edges
+        return boundary_edges, boundary_nodes
     
     def _create_grid(self):
         dx = 3/2 * self.cell_radius
@@ -101,11 +102,15 @@ class Tissue:
                 # Create a Cell object and add it to the stack
                 self.cells.append(Cell(cell_index, hex_nodes, height, is_neuron))
         
-        # update metadata for boundry nodes and edges s 
-        boundary_edges  = self._find_boundary_edges(self.graph)
-
+        # update metadata for boundry nodes and edges 
+        boundary_edges, boundary_nodes  = self._find_boundary(self.graph)
+        #edges
         edge_attr = {edge: 'boundary' for edge in boundary_edges}
         nx.set_edge_attributes(self.graph, edge_attr, name='edge_type')
+        # nodes
+        boundary_attr = {node: True for node in boundary_nodes}
+        nx.set_node_attributes(self.graph, False, 'boundary')  # Set default to False
+        nx.set_node_attributes(self.graph, boundary_attr, 'boundary')  # Update boundary nodes to True
 
 
 
@@ -174,10 +179,22 @@ class Tissue:
                 ax=ax
             )
 
-        nx.draw_networkx_nodes(self.graph, pos,
-                            node_size=5,
-                            node_color='gray',
-                            ax=ax)
+        # nx.draw_networkx_nodes(self.graph, pos,
+        #                     node_size=5,
+        #                     node_color='gray',
+        #                     ax=ax)
+        node_colors = [
+            'green' if (self.graph.nodes[node].get("boundary")) else 'gray'
+            for node in self.graph.nodes
+        ]
+
+        nx.draw_networkx_nodes(
+            self.graph,
+            pos,
+            node_size=5,
+            node_color=node_colors,
+            ax=ax
+        )
 
         # iterate on all cells, color them according to their height
         for cell in self.cells:
@@ -229,9 +246,11 @@ class Tissue:
     def _f_line_tension(self, v1, v2):
         """
         Calculate the line tension force between two vertices,
-        only if both vertices are neurons.
+        only if both vertices are neurons, and the edge_type is not "internal".
         """
-        if not (self.graph.nodes[v1]['neuron'] and self.graph.nodes[v2]['neuron']):
+        edge_type = self._get_edge_type(v1, v2)
+
+        if (not (self.graph.nodes[v1]['neuron'] and self.graph.nodes[v2]['neuron'])) or (edge_type == "internal"):
             return np.array([0.0, 0.0])
 
         dx = v2[0] - v1[0]
