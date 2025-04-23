@@ -36,7 +36,7 @@ class Tissue:
                 if G[v][nbr].get('edge_type') == 'marginal'
             )
 
-            # If either node has fewer than 3 'marginal' connections, it's a boundary edge
+            # If either node has fewer than 3 'marginal' connections, or both has exaactly 5 connections it's a boundary edge
             if (marginal_degree_u < 3 or marginal_degree_v < 3) or (G.degree(u) == 5 and G.degree(v) == 5):
                 boundary_edges.append((u, v))
 
@@ -122,12 +122,21 @@ class Tissue:
         """
         Compute the sum of forces acting on the vertices of the graph.
         """
-       # iterate on nodes, then iterate on their neighbors and compute forces
+        # Reset all forces to zero ? 
         for node in self.graph.nodes:
-            for neighbor in self.graph.neighbors(node):
-                for force_name in forces:
-                    force = self._compute_force(force_name, node, neighbor)
-                    self.graph.nodes[node]['force'] += force
+            self.graph.nodes[node]['force'] = np.array([0.0, 0.0])
+
+        #  Iterate over each unique edge
+        for v1, v2 in self.graph.edges:
+            for force_name in forces:
+                edge_type = self._get_edge_type(v1, v2)
+                # don't add force to boundary vertices 
+                if edge_type == "boundary":
+                    force = 0
+                else:
+                    force = self._compute_force(force_name, v1, v2)  
+                self.graph.nodes[v1]['force'] += force
+                self.graph.nodes[v2]['force'] -= force  # Equal and opposite reaction ? 
 
 
     def plot_tissue(self, legend=False, timestamp=None):
@@ -209,6 +218,10 @@ class Tissue:
         if dist == 0:
             return np.array([0.0, 0.0])
         
+        # get spring constant accorfing to edge type
+        edge_type = self._get_edge_type(v1, v2)
+        spring_constant = getattr(f'spring_constant_{edge_type}')
+        
         force_magnitude = spring_constant * (dist - cell_initial_vertex_length)
         force_vector = np.array([force_magnitude * dx / dist, force_magnitude * dy / dist])
         return force_vector
@@ -234,6 +247,11 @@ class Tissue:
 
         return force_vector
     
+    def _get_edge_type(self, v1, v2):
+        edge_data = self.graph.get_edge_data(v1, v2)
+        if edge_data is not None:
+            edge_type = edge_data.get('edge_type')
+        return edge_type
 
     def update_position(self):
         """
