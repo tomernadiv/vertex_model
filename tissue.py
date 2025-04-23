@@ -127,7 +127,7 @@ class Tissue:
         """
         Compute the sum of forces acting on the vertices of the graph.
         """
-        # Reset all forces to zero ? 
+        # Reset all forces to zero  
         for node in self.graph.nodes:
             self.graph.nodes[node]['force'] = np.array([0.0, 0.0])
 
@@ -135,37 +135,42 @@ class Tissue:
         for v1, v2 in self.graph.edges:
             for force_name in forces:
                 edge_type = self._get_edge_type(v1, v2)
-                # don't add force to boundary vertices 
+                # don't add force to boundary vertices ?? 
                 if edge_type == "boundary":
                     force = 0
                 else:
                     force = self._compute_force(force_name, v1, v2)  
                 self.graph.nodes[v1]['force'] += force
-                self.graph.nodes[v2]['force'] -= force  # Equal and opposite reaction ? 
+                self.graph.nodes[v2]['force'] -= force  # Equal and opposite reaction ?? 
 
+    def update_positions(self, dt=0.01):
+        """
+        Update the position of each vertex based on the computed forces multiplied by a constant.
+        """
+        for node in self.graph.nodes:
+            pos = np.array(self.graph.nodes[node]['pos'], dtype=float)
+            force = np.array(self.graph.nodes[node]['force'], dtype=float)
 
-    def plot_tissue(self, legend=False, timestamp=None):
+            # Simple Euler integration
+            new_pos = pos + dt * force
 
+            self.graph.nodes[node]['pos'] = tuple(new_pos)
+
+    def plot_tissue(self, ax=None, legend=False):
         # get positions
         pos = nx.get_node_attributes(self.graph, 'pos')
 
-        # draw base graph
-        fig, ax = plt.subplots(figsize=(6,6))
-        # nx.draw_networkx_edges(self.graph, pos,
-        #                     edge_color='gray',
-        #                     width=0.5,
-        #                     ax=ax)
-        # First, extract positions
+        created_fig = False
+        if ax is None:
+            fig, ax = plt.subplots(figsize=(6, 6))
+            created_fig = True
 
-        #draw edges ny colors
-        # Define colors for each edge type
+        # Draw edges grouped by type
         edge_colors = {
             'marginal': 'gray',
             'internal': 'red',
-            'boundary' : 'green'
+            'boundary': 'green'
         }
-
-        # Draw edges grouped by type
         for edge_type, color in edge_colors.items():
             edge_list = [
                 (u, v) for u, v, d in self.graph.edges(data=True)
@@ -179,15 +184,10 @@ class Tissue:
                 ax=ax
             )
 
-        # nx.draw_networkx_nodes(self.graph, pos,
-        #                     node_size=5,
-        #                     node_color='gray',
-        #                     ax=ax)
         node_colors = [
-            'green' if (self.graph.nodes[node].get("boundary")) else 'gray'
+            'green' if self.graph.nodes[node].get("boundary") else 'gray'
             for node in self.graph.nodes
         ]
-
         nx.draw_networkx_nodes(
             self.graph,
             pos,
@@ -196,32 +196,25 @@ class Tissue:
             ax=ax
         )
 
-        # iterate on all cells, color them according to their height
         for cell in self.cells:
-            if not cell.is_neuron():
-                hex_nodes = cell.get_nodes()
-                color = cm.get_cmap(non_neurons_cmap)(cell.get_height()/2)
-                plt.fill(*zip(*[pos[node] for node in hex_nodes]), color=color, alpha=0.5)
+            hex_nodes = cell.get_nodes()
+            color_map = neurons_cmap if cell.is_neuron() else non_neurons_cmap
+            color = cm.get_cmap(color_map)(cell.get_height() / 2)
+            poly_coords = [pos[node] for node in hex_nodes]
+            ax.fill(*zip(*poly_coords), color=color, alpha=0.5)
 
-            else:
-                hex_nodes = cell.get_nodes()
-                color = cm.get_cmap(neurons_cmap)(cell.get_height()/2)
-                plt.fill(*zip(*[pos[node] for node in hex_nodes]), color=color, alpha=0.5)
-
-        # add legend
         if legend:
             neuron_patch = patches.Patch(color=cm.get_cmap(neurons_cmap)(0.5), label='Neuron')
             non_neuron_patch = patches.Patch(color=cm.get_cmap(non_neurons_cmap)(0.5), label='Non-neuron')
-            plt.legend(handles=[neuron_patch, non_neuron_patch])
+            ax.legend(handles=[neuron_patch, non_neuron_patch])
 
-        # add title
-        if timestamp is not None:
-            plt.title(f"Timestamp: {timestamp}")
 
-        plt.axis('equal')
-        plt.axis('off')
-        plt.tight_layout()
-        plt.show()
+        ax.set_aspect('equal')
+        ax.axis('off')
+
+        if created_fig:
+            plt.show()
+
 
     def _f_spring(self, v1, v2):
         """
@@ -250,7 +243,7 @@ class Tissue:
         """
         edge_type = self._get_edge_type(v1, v2)
 
-        if (not (self.graph.nodes[v1]['neuron'] and self.graph.nodes[v2]['neuron'])) or (edge_type == "internal"):
+        if (not (self.graph.nodes[v1]['neuron'] and self.graph.nodes[v2]['neuron'])) or (edge_type == "internal") or (edge_type == "boundary"):
             return np.array([0.0, 0.0])
 
         dx = v2[0] - v1[0]
@@ -272,9 +265,3 @@ class Tissue:
             edge_type = edge_data.get('edge_type')
         return edge_type
 
-    def update_position(self):
-        """
-        Update the position of each vertex based on the computed forces.
-        Dont forget to reset the forces after each update.
-        """
-        pass
