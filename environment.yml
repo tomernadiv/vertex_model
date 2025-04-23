@@ -1,0 +1,14 @@
+name: vertex_model
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.11
+  - numpy
+  - matplotlib
+  - seaborn
+  - pytorch
+  - networkx
+  - pip
+  - pip:
+      - cmake

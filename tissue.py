@@ -1,5 +1,8 @@
 from globals import *
 from cell import Cell
+from networkx.algorithms.boundary import edge_boundary
+
+
 
 class Tissue:
     def __init__(self, cell_radius, num_rows, num_cols):
@@ -12,6 +15,33 @@ class Tissue:
 
         self._create_grid()
 
+    def _find_boundary_edges(self, G):
+        """Find the boundary edges of a hexagonal graph based on 'marginal' edges."""
+        boundary_edges = []
+
+        for u, v, attrs in G.edges(data=True):
+            edge_type = attrs.get('edge_type')
+            if edge_type != 'marginal':
+                continue  # Skip non-marginal edges
+
+            # Count 'marginal' edges connected to u
+            marginal_degree_u = sum(
+                1 for nbr in G.neighbors(u)
+                if G[u][nbr].get('edge_type') == 'marginal'
+            )
+
+            # Count 'marginal' edges connected to v
+            marginal_degree_v = sum(
+                1 for nbr in G.neighbors(v)
+                if G[v][nbr].get('edge_type') == 'marginal'
+            )
+
+            # If either node has fewer than 3 'marginal' connections, it's a boundary edge
+            if (marginal_degree_u < 3 or marginal_degree_v < 3) or (G.degree(u) == 5 and G.degree(v) == 5):
+                boundary_edges.append((u, v))
+
+        return boundary_edges
+    
     def _create_grid(self):
         dx = 3/2 * self.cell_radius
         dy = math.sqrt(3) * self.cell_radius
@@ -20,13 +50,16 @@ class Tissue:
         def round_pos(x, y):
             return (round(x, 5), round(y, 5))
 
+        # generate grid 
         for row in range(self.num_rows):
             for col in range(self.num_cols):
+                # hexagon centroid coordinates
                 cx = col * dx
                 cy = row * dy
                 if col % 2 == 1:
                     cy += dy / 2
 
+                # generate hexagon nodes
                 hex_nodes = []
                 for i in range(6):
                     angle = math.pi / 3 * i
@@ -38,12 +71,20 @@ class Tissue:
                         node_cache[pos] = pos
                     hex_nodes.append(node_cache[pos])
 
-                # add edges between the hexagonal nodes, no self-loops
+                # add marginal edges between the hexagonal nodes, no self-loops (represents membrane)
                 for i in range(6):
                     n1 = hex_nodes[i]
                     n2 = hex_nodes[(i + 1) % 6]
                     if n1 != n2:
-                        self.graph.add_edge(n1, n2)                             
+                        self.graph.add_edge(n1, n2, edge_type='marginal')  
+
+                # add internal edges between 2 extreme nodes in the hexagon (represents "volume")                        
+                internal_pairs = [(0, 3), (1,4), (2, 5)]
+                for i, j in internal_pairs:
+                    n1 = hex_nodes[i]
+                    n2 = hex_nodes[j]
+                    if n1 != n2 and not self.graph.has_edge(n1, n2):
+                        self.graph.add_edge(n1, n2, edge_type='internal')
 
                 cell_index = int(row * self.num_cols + col)
                 height = cell_initial_height                # can be modified later with a smarter logic
@@ -59,6 +100,15 @@ class Tissue:
 
                 # Create a Cell object and add it to the stack
                 self.cells.append(Cell(cell_index, hex_nodes, height, is_neuron))
+        
+        # update metadata for boundry nodes and edges s 
+        boundary_edges  = self._find_boundary_edges(self.graph)
+
+        edge_attr = {edge: 'boundary' for edge in boundary_edges}
+        nx.set_edge_attributes(self.graph, edge_attr, name='edge_type')
+
+
+
 
     def _compute_force(self, force_name: str, v1, v2):
         """
@@ -87,10 +137,34 @@ class Tissue:
 
         # draw base graph
         fig, ax = plt.subplots(figsize=(6,6))
-        nx.draw_networkx_edges(self.graph, pos,
-                            edge_color='gray',
-                            width=0.5,
-                            ax=ax)
+        # nx.draw_networkx_edges(self.graph, pos,
+        #                     edge_color='gray',
+        #                     width=0.5,
+        #                     ax=ax)
+        # First, extract positions
+
+        #draw edges ny colors
+        # Define colors for each edge type
+        edge_colors = {
+            'marginal': 'gray',
+            'internal': 'red',
+            'boundary' : 'green'
+        }
+
+        # Draw edges grouped by type
+        for edge_type, color in edge_colors.items():
+            edge_list = [
+                (u, v) for u, v, d in self.graph.edges(data=True)
+                if d.get('edge_type') == edge_type
+            ]
+            nx.draw_networkx_edges(
+                self.graph, pos,
+                edgelist=edge_list,
+                edge_color=color,
+                width=0.5,
+                ax=ax
+            )
+
         nx.draw_networkx_nodes(self.graph, pos,
                             node_size=5,
                             node_color='gray',
