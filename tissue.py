@@ -113,9 +113,6 @@ class Tissue:
         nx.set_node_attributes(self.graph, False, 'boundary')  # Set default to False
         nx.set_node_attributes(self.graph, boundary_attr, 'boundary')  # Update boundary nodes to True
 
-
-
-
     def _compute_force(self, force_name: str, v1, v2):
         """
         Compute the force between two vertices using the specified force name.
@@ -132,31 +129,59 @@ class Tissue:
         for node in self.graph.nodes:
             self.graph.nodes[node]['force'] = np.array([0.0, 0.0])
 
-        #  Iterate over each unique edge
+        #  iterate over each unique edge
         for v1, v2 in self.graph.edges:
-            for force_name in forces:
-                edge_type = self._get_edge_type(v1, v2)
-                # don't add force to boundary vertices ?? 
-                if edge_type == "boundary":
-                    force = 0
-                    force = self._compute_force(force_name, v1, v2) 
-                else:
-                    force = self._compute_force(force_name, v1, v2)  
-                self.graph.nodes[v1]['force'] += force
-                self.graph.nodes[v2]['force'] -= force  # Equal and opposite reaction ?? 
 
-    def update_positions(self, dt=0.01):
+            # iterate over all forces
+            for force_name in forces:
+
+                # compute force
+                force = self._compute_force(force_name, v1, v2)  
+
+                # sum up force only if vetex type is not boundary
+                if not self.graph.nodes[v1]['boundary']:
+                    self.graph.nodes[v1]['force'] += force
+                
+                if not self.graph.nodes[v2]['boundary']:
+                    self.graph.nodes[v2]['force'] -= force 
+
+    def update_positions(self, dt=1):
         """
         Update the position of each vertex based on the computed forces multiplied by a constant.
+        - compute velocity, v = mu * f
+        - update position, x = x + v * dt
         """
         for node in self.graph.nodes:
             pos = np.array(self.graph.nodes[node]['pos'], dtype=float)
             force = np.array(self.graph.nodes[node]['force'], dtype=float)
 
-            # Simple Euler integration
-            new_pos = pos + dt * force
+            # compute velocity
+            velocity = mu * force
+
+            # update position
+            new_pos = pos + velocity * dt
 
             self.graph.nodes[node]['pos'] = tuple(new_pos)
+
+    def update_heights(self):
+        """
+        Update the volume of each cell based on the positions of its vertices.
+        Aassume cell volume is constant, compute the new surface area, and update cell height
+        """
+        for cell in self.cells:
+            hex_nodes = cell.get_nodes()
+            pos = [self.graph.nodes[node]['pos'] for node in hex_nodes]
+
+            # compute new surface area
+            new_surface_area = 0
+            for i in range(6):
+                p1 = pos[i]
+                p2 = pos[(i + 1) % 6]
+                new_surface_area += 0.5 * abs(p1[0] * p2[1] - p2[0] * p1[1])
+            
+            # compute new height
+            new_height = cell_volume / new_surface_area
+            cell.update_height(new_height)                 
 
     def plot_tissue(self, ax=None, legend=False):
         # get positions
@@ -217,7 +242,6 @@ class Tissue:
         if created_fig:
             plt.show()
 
-
     def _f_spring(self, v1, v2):
         """
         Calculate the spring force between two vertices.
@@ -233,7 +257,6 @@ class Tissue:
         # get spring constant accorfing to edge type
         edge_type = self._get_edge_type(v1, v2)
         spring_constant = globals()[f"spring_constant_{edge_type}"]
-        
         force_magnitude = spring_constant * (dist - cell_initial_vertex_length)
         force_vector = np.array([force_magnitude * dx / dist, force_magnitude * dy / dist])
         return force_vector

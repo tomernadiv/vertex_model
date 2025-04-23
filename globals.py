@@ -27,8 +27,8 @@ neurons_cmap = 'Blues'
 ### phyisical constants ###
 
 # cell size
-cell_radius = 1.0 # units: ???
-cell_volume = 1.0 # units: ???
+cell_radius = 1
+cell_volume = 1
 cell_initial_vertex_length = math.sqrt(3) * cell_radius
 cell_initial_surface_area = 3 * math.sqrt(3) / 2 * cell_initial_vertex_length**2
 cell_initial_height = cell_volume / cell_initial_surface_area
@@ -37,7 +37,8 @@ cell_initial_height = cell_volume / cell_initial_surface_area
 neuron_prob = 0.5 # probability of a cell being a neuron
 
 # mechanical properties
-spring_constant_marginal = 1.2
-spring_constant_boundary = 0
-spring_constant_internal = 1
-line_tension_constant = 0.1
+mu = 0.2                            # friction coefficient
+spring_constant_marginal = 2      # spring between neighbouring vertices
+spring_constant_boundary = 0      # spring between boundary vertices (vertices with 3 neighbours)
+spring_constant_internal = 1      # spring between opposite vertices of the same cell
+line_tension_constant = 1       # causes neurons to shrink

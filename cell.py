@@ -32,3 +32,9 @@ class Cell:
         Returns the nodes of the cell.
         """
         return self.nodes
+
+    def update_height(self, new_height):
+        """
+        Updates the height of the cell.
+        """
+        self.height = new_height
