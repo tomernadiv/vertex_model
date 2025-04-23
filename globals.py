@@ -37,7 +37,7 @@ cell_initial_height = cell_volume / cell_initial_surface_area
 neuron_prob = 0.5 # probability of a cell being a neuron
 
 # mechanical properties
-spring_constant_marginal = 2
-spring_constant_boundary = 1
+spring_constant_marginal = 1.2
+spring_constant_boundary = 0
 spring_constant_internal = 1
-line_tension_constant = 0.2
+line_tension_constant = 0.1

@@ -89,7 +89,8 @@ class Tissue:
 
                 cell_index = int(row * self.num_cols + col)
                 height = cell_initial_height                # can be modified later with a smarter logic
-                is_neuron = random.random() < neuron_prob   # probability of being a neuron
+
+                is_neuron = row > (int(self.num_rows/2) - 1)
 
                 if is_neuron:
                     for node in hex_nodes:
@@ -138,6 +139,7 @@ class Tissue:
                 # don't add force to boundary vertices ?? 
                 if edge_type == "boundary":
                     force = 0
+                    force = self._compute_force(force_name, v1, v2) 
                 else:
                     force = self._compute_force(force_name, v1, v2)  
                 self.graph.nodes[v1]['force'] += force
@@ -243,6 +245,7 @@ class Tissue:
         """
         edge_type = self._get_edge_type(v1, v2)
 
+        # don't compute on internal or boundary edges?? 
         if (not (self.graph.nodes[v1]['neuron'] and self.graph.nodes[v2]['neuron'])) or (edge_type == "internal") or (edge_type == "boundary"):
             return np.array([0.0, 0.0])
 
