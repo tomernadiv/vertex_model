@@ -237,7 +237,7 @@ class Tissue:
         
         # get spring constant accorfing to edge type
         edge_type = self._get_edge_type(v1, v2)
-        spring_constant = getattr(f'spring_constant_{edge_type}')
+        spring_constant = globals()[f"spring_constant_{edge_type}"]
         
         force_magnitude = spring_constant * (dist - cell_initial_vertex_length)
         force_vector = np.array([force_magnitude * dx / dist, force_magnitude * dy / dist])
