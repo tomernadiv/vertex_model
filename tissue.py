@@ -257,7 +257,10 @@ class Tissue:
         # get spring constant accorfing to edge type
         edge_type = self._get_edge_type(v1, v2)
         spring_constant = globals()[f"spring_constant_{edge_type}"]
-        force_magnitude = spring_constant * (dist - cell_initial_vertex_length)
+        if edge_type == 'marginal' and dist < membrane_min_length:
+            # spring constrain - not compressing too much
+            dist = membrane_min_length
+        force_magnitude = -1 * spring_constant * (dist - membrane_rest_length)
         force_vector = np.array([force_magnitude * dx / dist, force_magnitude * dy / dist])
         return force_vector
     
@@ -290,4 +293,88 @@ class Tissue:
         if edge_data is not None:
             edge_type = edge_data.get('edge_type')
         return edge_type
+    
+    def compute_total_energy(self):
+        total_energy = 0.0
 
+        for v1, v2 in self.graph.edges:
+            dx = v2[0] - v1[0]
+            dy = v2[1] - v1[1]
+            length = math.sqrt(dx**2 + dy**2)
+            
+            edge_type = self._get_edge_type(v1, v2)
+
+            # Determine spring constant and rest length
+            if edge_type == 'marginal':
+                k = spring_constant_marginal
+                rest_length = membrane_rest_length
+            elif edge_type == 'internal':
+                k = spring_constant_internal
+                rest_length = internal_spring_rest_length
+            elif edge_type == 'boundary':
+                #for now k=0 and therefore will not contribute to energy
+                k = spring_constant_boundary
+                rest_length = membrane_rest_length
+            # elif (not (self.graph.nodes[v1]['neuron'] and self.graph.nodes[v2]['neuron'])):
+            #     #not sure if this is the contribution of line tention
+            #     total_energy += line_tension_constant * length
+            
+            # Spring energy: 0.5 * k * (l - l0)^2
+            spring_energy = 0.5 * k * (length - membrane_rest_length)**2
+            total_energy += spring_energy
+        return total_energy
+
+
+
+
+    # def _f_repulsion_internal_membrane(self, v1, v2):
+    #     """
+    #     Repulsive force between internal and marginal edges to prevent crossing.
+    #     Applies when v1-v2 is an internal edge, and checks nearby marginal edges.
+    #     """
+    #     edge_type = self._get_edge_type(v1, v2)
+    #     if edge_type != "internal":
+    #         return np.array([0.0, 0.0])
+
+    #     pos1  = np.array(self.graph.nodes[v1]['pos'])
+    #     pos2  = np.array(self.graph.nodes[v2]['pos'])
+    #     force = np.array([0.0, 0.0])
+
+    #     for u, w, attrs in self.graph.edges(data=True):
+    #         if (u, w) == (v1, v2) or (w, u) == (v1, v2):
+    #             continue
+    #         if attrs.get("edge_type") != "marginal":
+    #             continue
+
+    #         # get positions
+    #         p1 = np.array(self.graph.nodes[u]['pos'])
+    #         p2 = np.array(self.graph.nodes[w]['pos'])
+
+    #         # shortest vector from internal edge to marginal edge
+    #         closest_vec = self._shortest_vector_between_segments(pos1, pos2, p1, p2)
+    #         dist = np.linalg.norm(closest_vec)
+
+    #         if dist < repulsion_threshold and dist > 0:
+    #             repulsion = repulsion_strength * (repulsion_threshold - dist) * (closest_vec / dist)
+    #             force += repulsion
+
+    #     return force
+
+    # def _shortest_vector_between_segments(self, a1, a2, b1, b2):
+    #     """
+    #     Computes the shortest vector from segment a1-a2 to b1-b2.
+    #     Returns the vector pointing from internal edge to marginal edge.
+    #     """
+    #     def project_point_on_segment(p, q1, q2):
+    #         line_vec = q2 - q1
+    #         t = np.dot(p - q1, line_vec) / np.dot(line_vec, line_vec)
+    #         t = max(0, min(1, t))
+    #         return q1 + t * line_vec
+
+    #     # project a1 and a2 on b1-b2 and pick the closest
+    #     proj1 = project_point_on_segment(a1, b1, b2)
+    #     proj2 = project_point_on_segment(a2, b1, b2)
+    #     d1 = a1 - proj1
+    #     d2 = a2 - proj2
+
+    #     return d1 if np.linalg.norm(d1) < np.linalg.norm(d2) else d2
