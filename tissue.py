@@ -91,7 +91,7 @@ class Tissue:
                 height = cell_initial_height                # can be modified later with a smarter logic
 
                 is_neuron = row > (int(self.num_rows/2) - 1)
-
+                is_neuron = True
                 if is_neuron:
                     for node in hex_nodes:
                         self.graph.nodes[node]['neuron'] = True # set neuron flag for all vertices of the cell
@@ -104,7 +104,8 @@ class Tissue:
                 self.cells.append(Cell(cell_index, hex_nodes, height, is_neuron))
         
         # update metadata for boundry nodes and edges 
-        boundary_edges, boundary_nodes  = self._find_boundary(self.graph)
+        # boundary_edges, boundary_nodes  = self._find_boundary(self.graph)
+        boundary_edges, boundary_nodes = [],[]
         #edges
         edge_attr = {edge: 'boundary' for edge in boundary_edges}
         nx.set_edge_attributes(self.graph, edge_attr, name='edge_type')
@@ -191,7 +192,8 @@ class Tissue:
         if ax is None:
             fig, ax = plt.subplots(figsize=(6, 6))
             created_fig = True
-
+        ax.set_xlim(-1, self.num_cols * 3 / 2 + 1)
+        ax.set_ylim(-1, self.num_rows * math.sqrt(3) + 1)
         # Draw edges grouped by type
         edge_colors = {
             'marginal': 'gray',
@@ -210,6 +212,7 @@ class Tissue:
                 width=0.5,
                 ax=ax
             )
+
 
         node_colors = [
             'green' if self.graph.nodes[node].get("boundary") else 'gray'
@@ -250,17 +253,19 @@ class Tissue:
         dy = v2[1] - v1[1]
         dist = math.sqrt(dx**2 + dy**2)
 
-        # Avoid division by zero
-        if dist == 0:
-            return np.array([0.0, 0.0])
+        # # Avoid division by zero
+        # if dist == 0:
+        #     return np.array([0.0, 0.0])
         
         # get spring constant accorfing to edge type
         edge_type = self._get_edge_type(v1, v2)
         spring_constant = globals()[f"spring_constant_{edge_type}"]
-        if edge_type == 'marginal' and dist < membrane_min_length:
+        min_length = globals()[f"{edge_type}_min_length"]
+        rest_length = globals()[f"{edge_type}_rest_length"]
+        if dist < min_length:
             # spring constrain - not compressing too much
-            dist = membrane_min_length
-        force_magnitude = -1 * spring_constant * (dist - membrane_rest_length)
+            dist = min_length
+        force_magnitude = spring_constant * (dist - rest_length)
         force_vector = np.array([force_magnitude * dx / dist, force_magnitude * dy / dist])
         return force_vector
     
@@ -272,21 +277,22 @@ class Tissue:
         edge_type = self._get_edge_type(v1, v2)
 
         # don't compute on internal or boundary edges?? 
-        if (not (self.graph.nodes[v1]['neuron'] and self.graph.nodes[v2]['neuron'])) or (edge_type == "internal") or (edge_type == "boundary"):
+        if ((self.graph.nodes[v1]['neuron'] and self.graph.nodes[v2]['neuron'])) and (edge_type == "marginal"):
+
+            dx = v2[0] - v1[0]
+            dy = v2[1] - v1[1]
+            dist = math.sqrt(dx**2 + dy**2)
+
+            # # Avoid division by zero
+            # if dist == 0:
+            #     return np.array([0.0, 0.0])
+
+            unit_vector = np.array([dx / dist, dy / dist])
+            force_vector = line_tension_constant * unit_vector
+
+            return force_vector
+        else:
             return np.array([0.0, 0.0])
-
-        dx = v2[0] - v1[0]
-        dy = v2[1] - v1[1]
-        dist = math.sqrt(dx**2 + dy**2)
-
-        # Avoid division by zero
-        if dist == 0:
-            return np.array([0.0, 0.0])
-
-        unit_vector = np.array([dx / dist, dy / dist])
-        force_vector = line_tension_constant * unit_vector
-
-        return force_vector
     
     def _get_edge_type(self, v1, v2):
         edge_data = self.graph.get_edge_data(v1, v2)
@@ -303,24 +309,15 @@ class Tissue:
             length = math.sqrt(dx**2 + dy**2)
             
             edge_type = self._get_edge_type(v1, v2)
+            spring_constant = globals()[f"spring_constant_{edge_type}"]
+            rest_length = globals()[f"{edge_type}_rest_length"]
 
-            # Determine spring constant and rest length
-            if edge_type == 'marginal':
-                k = spring_constant_marginal
-                rest_length = membrane_rest_length
-            elif edge_type == 'internal':
-                k = spring_constant_internal
-                rest_length = internal_spring_rest_length
-            elif edge_type == 'boundary':
-                #for now k=0 and therefore will not contribute to energy
-                k = spring_constant_boundary
-                rest_length = membrane_rest_length
-            # elif (not (self.graph.nodes[v1]['neuron'] and self.graph.nodes[v2]['neuron'])):
+            # if (not (self.graph.nodes[v1]['neuron'] and self.graph.nodes[v2]['neuron'])):
             #     #not sure if this is the contribution of line tention
             #     total_energy += line_tension_constant * length
             
             # Spring energy: 0.5 * k * (l - l0)^2
-            spring_energy = 0.5 * k * (length - membrane_rest_length)**2
+            spring_energy = 0.5 * spring_constant * (length - rest_length)**2
             total_energy += spring_energy
         return total_energy
 
