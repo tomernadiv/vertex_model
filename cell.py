@@ -38,3 +38,4 @@ class Cell:
         Updates the height of the cell.
         """
         self.height = new_height
+

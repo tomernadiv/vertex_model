@@ -11,7 +11,7 @@ class Tissue:
         self.num_cols = num_cols
         self.num_cells = num_rows * num_cols
         self.graph = nx.Graph()
-        self.cells = []
+        self.cells: list[Cell] = []
 
         self._create_grid()
 
@@ -114,6 +114,68 @@ class Tissue:
         nx.set_node_attributes(self.graph, False, 'boundary')  # Set default to False
         nx.set_node_attributes(self.graph, boundary_attr, 'boundary')  # Update boundary nodes to True
 
+    # def plot_tissue(self, ax=None, legend=False):
+
+    #     # get positions
+    #     pos = nx.get_node_attributes(self.graph, 'pos')
+
+    #     created_fig = False
+    #     if ax is None:
+    #         fig, ax = plt.subplots(figsize=(6, 6))
+    #         created_fig = True
+    #     ax.set_xlim(-1, self.num_cols * 3 / 2 + 1)
+    #     ax.set_ylim(-1, self.num_rows * math.sqrt(3) + 1)
+    #     # Draw edges grouped by type
+    #     edge_colors = {
+    #         'marginal': 'gray',
+    #         'internal': 'red',
+    #         'boundary': 'green'
+    #     }
+    #     for edge_type, color in edge_colors.items():
+    #         edge_list = [
+    #             (u, v) for u, v, d in self.graph.edges(data=True)
+    #             if d.get('edge_type') == edge_type
+    #         ]
+    #         nx.draw_networkx_edges(
+    #             self.graph, pos,
+    #             edgelist=edge_list,
+    #             edge_color=color,
+    #             width=0.5,
+    #             ax=ax
+    #         )
+
+
+    #     node_colors = [
+    #         'green' if self.graph.nodes[node].get("boundary") else 'gray'
+    #         for node in self.graph.nodes
+    #     ]
+    #     nx.draw_networkx_nodes(
+    #         self.graph,
+    #         pos,
+    #         node_size=5,
+    #         node_color=node_colors,
+    #         ax=ax
+    #     )
+
+    #     for cell in self.cells:
+    #         hex_nodes = cell.get_nodes()
+    #         color_map = neurons_cmap if cell.is_neuron() else non_neurons_cmap
+    #         color = cm.get_cmap(color_map)(cell.get_height() / 2)
+    #         poly_coords = [pos[node] for node in hex_nodes]
+    #         ax.fill(*zip(*poly_coords), color=color, alpha=0.5)
+
+    #     if legend:
+    #         neuron_patch = patches.Patch(color=cm.get_cmap(neurons_cmap)(0.5), label='Neuron')
+    #         non_neuron_patch = patches.Patch(color=cm.get_cmap(non_neurons_cmap)(0.5), label='Non-neuron')
+    #         ax.legend(handles=[neuron_patch, non_neuron_patch])
+
+
+    #     ax.set_aspect('equal')
+    #     ax.axis('off')
+
+    #     if created_fig:
+    #         plt.show()
+
     def plot_tissue(self, ax=None, legend=False):
         # get positions
         pos = nx.get_node_attributes(self.graph, 'pos')
@@ -124,6 +186,7 @@ class Tissue:
             created_fig = True
         ax.set_xlim(-1, self.num_cols * 3 / 2 + 1)
         ax.set_ylim(-1, self.num_rows * math.sqrt(3) + 1)
+
         # Draw edges grouped by type
         edge_colors = {
             'marginal': 'gray',
@@ -143,7 +206,6 @@ class Tissue:
                 ax=ax
             )
 
-
         node_colors = [
             'green' if self.graph.nodes[node].get("boundary") else 'gray'
             for node in self.graph.nodes
@@ -156,24 +218,30 @@ class Tissue:
             ax=ax
         )
 
+        # Compute global min and max height for normalization
+        min_h, max_h = 0.1, 0.9
+
         for cell in self.cells:
             hex_nodes = cell.get_nodes()
             color_map = neurons_cmap if cell.is_neuron() else non_neurons_cmap
-            color = cm.get_cmap(color_map)(cell.get_height() / 2)
+            norm_height = (cell.get_height() - min_h) / (max_h - min_h)  # Normalize height
+            color = cm.get_cmap(color_map)(1 - norm_height)  # Reversed color mapping (higher = darker)
             poly_coords = [pos[node] for node in hex_nodes]
-            ax.fill(*zip(*poly_coords), color=color, alpha=0.5)
+            ax.fill(*zip(*poly_coords), color=color, alpha=0.8)  # stronger color
 
         if legend:
             neuron_patch = patches.Patch(color=cm.get_cmap(neurons_cmap)(0.5), label='Neuron')
             non_neuron_patch = patches.Patch(color=cm.get_cmap(non_neurons_cmap)(0.5), label='Non-neuron')
             ax.legend(handles=[neuron_patch, non_neuron_patch])
 
-
         ax.set_aspect('equal')
         ax.axis('off')
 
         if created_fig:
             plt.show()
+
+        
+
     
     def _compute_force(self, force_name: str, v1, v2):
         """
@@ -291,15 +359,21 @@ class Tissue:
             # compute new surface area
             new_surface_area = 0
             for i in range(6):
+<<<<<<< Updated upstream
                 v1 = hex_nodes[i]
                 v2 = hex_nodes[(i + 1) % 6]
                 p1 = np.array(self.graph.nodes[v1]['pos'])
                 p2 = np.array(self.graph.nodes[v2]['pos'])
+=======
+                p1 = np.array(pos[i])
+                p2 = np.array(pos[(i + 1) % 6])
+>>>>>>> Stashed changes
                 new_surface_area += 0.5 * abs(p1[0] * p2[1] - p2[0] * p1[1])
             
             # compute new height
             new_height = cell_volume / new_surface_area
-            cell.update_height(new_height)                 
+
+            cell.update_height(new_height)    
 
     def _get_distances(self, v1, v2):
         p1 = np.array(self.graph.nodes[v1]['pos'])
@@ -328,56 +402,19 @@ class Tissue:
         return total_energy
 
 
+    #### for debugging cell height colors:
+    def compare_opposite_corner_heights(self):
+        top_right_index = self.num_cols - 1
+        bottom_left_index = (self.num_rows - 1) * self.num_cols
 
+        top_right_cell = self.cells[top_right_index]
+        bottom_left_cell = self.cells[bottom_left_index]
 
-    # def _f_repulsion_internal_membrane(self, v1, v2):
-    #     """
-    #     Repulsive force between internal and marginal edges to prevent crossing.
-    #     Applies when v1-v2 is an internal edge, and checks nearby marginal edges.
-    #     """
-    #     edge_type = self._get_edge_type(v1, v2)
-    #     if edge_type != "internal":
-    #         return np.array([0.0, 0.0])
+        h_top_right = top_right_cell.get_height()
+        h_bottom_left = bottom_left_cell.get_height()
 
-    #     pos1  = np.array(self.graph.nodes[v1]['pos'])
-    #     pos2  = np.array(self.graph.nodes[v2]['pos'])
-    #     force = np.array([0.0, 0.0])
+        print(f"Top-right cell (index {top_right_index}) height: {h_top_right:.3f}")
+        print(f"Bottom-left cell (index {bottom_left_index}) height: {h_bottom_left:.3f}")
+        print(f"Height difference (TR - BL): {h_top_right - h_bottom_left:.3f}")
 
-    #     for u, w, attrs in self.graph.edges(data=True):
-    #         if (u, w) == (v1, v2) or (w, u) == (v1, v2):
-    #             continue
-    #         if attrs.get("edge_type") != "marginal":
-    #             continue
-
-    #         # get positions
-    #         p1 = np.array(self.graph.nodes[u]['pos'])
-    #         p2 = np.array(self.graph.nodes[w]['pos'])
-
-    #         # shortest vector from internal edge to marginal edge
-    #         closest_vec = self._shortest_vector_between_segments(pos1, pos2, p1, p2)
-    #         dist = np.linalg.norm(closest_vec)
-
-    #         if dist < repulsion_threshold and dist > 0:
-    #             repulsion = repulsion_strength * (repulsion_threshold - dist) * (closest_vec / dist)
-    #             force += repulsion
-
-    #     return force
-
-    # def _shortest_vector_between_segments(self, a1, a2, b1, b2):
-    #     """
-    #     Computes the shortest vector from segment a1-a2 to b1-b2.
-    #     Returns the vector pointing from internal edge to marginal edge.
-    #     """
-    #     def project_point_on_segment(p, q1, q2):
-    #         line_vec = q2 - q1
-    #         t = np.dot(p - q1, line_vec) / np.dot(line_vec, line_vec)
-    #         t = max(0, min(1, t))
-    #         return q1 + t * line_vec
-
-    #     # project a1 and a2 on b1-b2 and pick the closest
-    #     proj1 = project_point_on_segment(a1, b1, b2)
-    #     proj2 = project_point_on_segment(a2, b1, b2)
-    #     d1 = a1 - proj1
-    #     d2 = a2 - proj2
-
-    #     return d1 if np.linalg.norm(d1) < np.linalg.norm(d2) else d2
+        return h_top_right, h_bottom_left

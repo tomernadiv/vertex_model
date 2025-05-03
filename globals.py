@@ -56,3 +56,4 @@ marginal_rest_length = (cell_initial_vertex_length * 0.7)
 marginal_min_length = 0.1
 internal_min_length = 0.1
 boundary_min_length = 0.1
+
