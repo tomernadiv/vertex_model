@@ -34,7 +34,7 @@ def run_simulation(T:tissue.Tissue, time_limit:int, output_dir:str):
 
     # iterate overthe graph
     for t in range(1, time_limit):
-        print(f"\n\n---------------------Time {t}---------------------")
+        print(f"\n---------------------Time {t}---------------------")
         # Create a new figure each time
         fig, ax = plt.subplots(figsize=(6, 6))
         
@@ -119,15 +119,19 @@ if __name__ == "__main__":
 
     # run
     #add_pertubation(T)
-    print(f"Starting Simulation for {time_limit} intervals:\n")
+    print(f"Starting Simulation for {time_limit} intervals:")
+    print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
     total_energy = run_simulation(T, time_limit=time_limit, output_dir=frames_dir)
-    print("Finished Simulation Succesfully.\n")
+    print("\nFinished Simulation Succesfully.")
+    print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
     # save plots
     os.makedirs(outpur_dir, exist_ok=True)
     replay_simulation(frames_dir=frames_dir, num_of_frames=time_limit, output_file=os.path.join(outpur_dir,"simulation.mp4"))
     plot_energy_graph(total_energy, save_graph=True, output_path=os.path.join(outpur_dir,"energy_graph.png"))
 
     print(f"Saved Simulation on {outpur_dir}.")
+    print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+    print("Done.")
 
 
 
