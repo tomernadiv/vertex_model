@@ -6,7 +6,9 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import matplotlib.image as mpimg
 import os
-
+import sys
+sys.stdout = open("output_log.txt", "w")
+print(animation.writers.list())
 
 
 # add some pertubations to check plotting
@@ -39,6 +41,7 @@ def run_simulation(T:tissue.Tissue, time_limit:int, output_dir:str):
 
     # iterate overthe graph
     for t in range(1, time_limit):
+        print(f"\n\n---------------------Time {t}---------------------")
         # Create a new figure each time
         fig, ax = plt.subplots(figsize=(6, 6))
         
@@ -74,24 +77,28 @@ def run_simulation(T:tissue.Tissue, time_limit:int, output_dir:str):
     return total_energy
 
 
-def replay_simulation(frames_dir:str, num_of_frames:int):
+def replay_simulation(frames_dir: str, num_of_frames: int, output_file: str = "simulation.mp4", fps: int = 2):
     fig, ax = plt.subplots()
 
     first_frame_path = os.path.join(frames_dir, "tissue_frame_1.png")
     if not os.path.exists(first_frame_path):
         raise FileNotFoundError(f"Could not find first frame at {first_frame_path}")
+    
     img = ax.imshow(mpimg.imread(first_frame_path))
 
     def update(frame):
         frame_path = os.path.join(frames_dir, f"tissue_frame_{frame}.png")
         img.set_data(mpimg.imread(frame_path))
-        ax.set_title(f"Timestamp: {frame}")
         return [img]
 
-    ani = animation.FuncAnimation(fig, update, frames=range(1, num_of_frames+1), interval=500, blit=True, repeat=True)
+    ani = animation.FuncAnimation(fig, update, frames=range(1, num_of_frames), interval=500, blit=True, repeat=False)
 
     plt.tight_layout()
-    return ani, fig  
+
+    # Save animation as MP4 using ffmpeg writer
+    ani.save(output_file, writer='ffmpeg', fps=fps)
+
+    plt.close(fig)
 
 def plot_energy_graph(total_energy, save_graph:bool = False, output_path:str = None):
     
@@ -110,22 +117,21 @@ def plot_energy_graph(total_energy, save_graph:bool = False, output_path:str = N
 if __name__ == "__main__":
     
     #init
-    T = tissue.Tissue(cell_radius=cell_radius, num_cols=10, num_rows=10)
-    time_limit=10
+    tissue_size = 5
+    time_limit=20
     frames_dir = "./frames_dir"
+    outpur_dir = "./output_dir"
+    T = tissue.Tissue(cell_radius=cell_radius, num_cols=tissue_size, num_rows=tissue_size)
 
     # run
     #add_pertubation(T)
     total_energy = run_simulation(T, time_limit=time_limit, output_dir=frames_dir)
 
-    # Show the animation
-    ani, fig = replay_simulation(frames_dir=frames_dir, num_of_frames=time_limit)
-    plt.rcParams['animation.html'] = 'html5'
-    plt.figure(fig.number) 
-    plt.show()
+    # save plots
 
-
-    plot_energy_graph(total_energy)
+    os.makedirs(outpur_dir, exist_ok=True)
+    replay_simulation(frames_dir=frames_dir, num_of_frames=time_limit, output_file=os.path.join(outpur_dir,"simulation.mp4"))
+    plot_energy_graph(total_energy, save_graph=True, output_path=os.path.join(outpur_dir,"energy_graph.png"))
 
 
 
