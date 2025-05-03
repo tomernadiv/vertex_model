@@ -1,6 +1,7 @@
 # NODE
 neuron: Bool
 boundary: Bool
+force: 2d-vector
 
 # EDGE
 edge_type: {"marginal" (membrane), "internal" (volume), "boundary"}

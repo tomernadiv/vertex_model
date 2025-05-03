@@ -44,7 +44,7 @@ spring_constant_internal = 0      # spring between opposite vertices of the same
 line_tension_constant = 0    # causes neurons to shrink
 internal_rest_length = cell_radius * 2 * 0.7     # rest length of the internal spring
 boundary_rest_length = cell_initial_vertex_length * 0.7     # rest length of the boundary spring
-marginal_rest_length = cell_initial_vertex_length * 0.7 
+marginal_rest_length = (cell_initial_vertex_length * 0.5) 
 
 
 # constrints
