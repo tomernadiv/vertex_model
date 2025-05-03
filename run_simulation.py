@@ -44,7 +44,7 @@ def run_simulation(T:tissue.Tissue, time_limit:int, output_dir:str):
         
         # Save the plot as an image (optional)
         plt.tight_layout()
-        plt.savefig(os.path.join(output_dir,f"tissue_frame_{t}.png"))  # Or comment this out if not needed
+        plt.savefig(os.path.join(output_dir,f"tissue_frame_{t}.png")) 
         plt.close(fig)
         
         # Pause for visualization
@@ -119,12 +119,15 @@ if __name__ == "__main__":
 
     # run
     #add_pertubation(T)
+    print(f"Starting Simulation for {time_limit} intervals:\n")
     total_energy = run_simulation(T, time_limit=time_limit, output_dir=frames_dir)
-
+    print("Finished Simulation Succesfully.\n")
     # save plots
     os.makedirs(outpur_dir, exist_ok=True)
     replay_simulation(frames_dir=frames_dir, num_of_frames=time_limit, output_file=os.path.join(outpur_dir,"simulation.mp4"))
     plot_energy_graph(total_energy, save_graph=True, output_path=os.path.join(outpur_dir,"energy_graph.png"))
+
+    print(f"Saved Simulation on {outpur_dir}.")
 
 
 

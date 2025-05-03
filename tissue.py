@@ -225,7 +225,6 @@ class Tissue:
         Calculate the spring force between two vertices.
         """
         dx, dy, dist = self._get_distances(v1,v2)
-
         # Avoid division by zero
         if dist == 0:
             raise RuntimeError(f"distance of nodes: {v1}, {v2} is zero!")
@@ -235,11 +234,18 @@ class Tissue:
         spring_constant = globals()[f"spring_constant_{edge_type}"]
         min_length = globals()[f"{edge_type}_min_length"]
         rest_length = globals()[f"{edge_type}_rest_length"]
+
+        # Repulsion if distance is less than minimal allowed
         if dist < min_length:
-            # spring constrain - not compressing too much
-            print(f"Warning: distanced between {v1}, {v2} is minimal")
-            dist = min_length
-        force_magnitude = spring_constant * (dist - rest_length)
+            print(f"[Warning]: distance between {v1}, {v2} is below minimal ({dist:.3f} < {min_length})")
+            # Apply a repulsive force to push apart strongly
+            force_magnitude = spring_constant * (dist - rest_length)
+            repulsion_strength = 1.5  # or higher if needed
+            force_magnitude = repulsion_strength * spring_constant * (dist - min_length)
+        else:
+            force_magnitude = spring_constant * (dist - rest_length)
+
+
         force_vector = np.array([force_magnitude * dx / dist, force_magnitude * dy / dist])
         return force_vector
     
@@ -280,13 +286,15 @@ class Tissue:
         """
         for cell in self.cells:
             hex_nodes = cell.get_nodes()
-            pos = [self.graph.nodes[node]['pos'] for node in hex_nodes]
+            #pos = [self.graph.nodes[node]['pos'] for node in hex_nodes]
 
             # compute new surface area
             new_surface_area = 0
             for i in range(6):
-                p1 = pos[i]
-                p2 = pos[(i + 1) % 6]
+                v1 = hex_nodes[i]
+                v2 = hex_nodes[(i + 1) % 6]
+                p1 = np.array(self.graph.nodes[v1]['pos'])
+                p2 = np.array(self.graph.nodes[v2]['pos'])
                 new_surface_area += 0.5 * abs(p1[0] * p2[1] - p2[0] * p1[1])
             
             # compute new height
