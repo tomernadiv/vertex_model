@@ -114,67 +114,6 @@ class Tissue:
         nx.set_node_attributes(self.graph, False, 'boundary')  # Set default to False
         nx.set_node_attributes(self.graph, boundary_attr, 'boundary')  # Update boundary nodes to True
 
-    # def plot_tissue(self, ax=None, legend=False):
-
-    #     # get positions
-    #     pos = nx.get_node_attributes(self.graph, 'pos')
-
-    #     created_fig = False
-    #     if ax is None:
-    #         fig, ax = plt.subplots(figsize=(6, 6))
-    #         created_fig = True
-    #     ax.set_xlim(-1, self.num_cols * 3 / 2 + 1)
-    #     ax.set_ylim(-1, self.num_rows * math.sqrt(3) + 1)
-    #     # Draw edges grouped by type
-    #     edge_colors = {
-    #         'marginal': 'gray',
-    #         'internal': 'red',
-    #         'boundary': 'green'
-    #     }
-    #     for edge_type, color in edge_colors.items():
-    #         edge_list = [
-    #             (u, v) for u, v, d in self.graph.edges(data=True)
-    #             if d.get('edge_type') == edge_type
-    #         ]
-    #         nx.draw_networkx_edges(
-    #             self.graph, pos,
-    #             edgelist=edge_list,
-    #             edge_color=color,
-    #             width=0.5,
-    #             ax=ax
-    #         )
-
-
-    #     node_colors = [
-    #         'green' if self.graph.nodes[node].get("boundary") else 'gray'
-    #         for node in self.graph.nodes
-    #     ]
-    #     nx.draw_networkx_nodes(
-    #         self.graph,
-    #         pos,
-    #         node_size=5,
-    #         node_color=node_colors,
-    #         ax=ax
-    #     )
-
-    #     for cell in self.cells:
-    #         hex_nodes = cell.get_nodes()
-    #         color_map = neurons_cmap if cell.is_neuron() else non_neurons_cmap
-    #         color = cm.get_cmap(color_map)(cell.get_height() / 2)
-    #         poly_coords = [pos[node] for node in hex_nodes]
-    #         ax.fill(*zip(*poly_coords), color=color, alpha=0.5)
-
-    #     if legend:
-    #         neuron_patch = patches.Patch(color=cm.get_cmap(neurons_cmap)(0.5), label='Neuron')
-    #         non_neuron_patch = patches.Patch(color=cm.get_cmap(non_neurons_cmap)(0.5), label='Non-neuron')
-    #         ax.legend(handles=[neuron_patch, non_neuron_patch])
-
-
-    #     ax.set_aspect('equal')
-    #     ax.axis('off')
-
-    #     if created_fig:
-    #         plt.show()
 
     def plot_tissue(self, ax=None, legend=False):
         # get positions
@@ -359,15 +298,10 @@ class Tissue:
             # compute new surface area
             new_surface_area = 0
             for i in range(6):
-<<<<<<< Updated upstream
                 v1 = hex_nodes[i]
                 v2 = hex_nodes[(i + 1) % 6]
                 p1 = np.array(self.graph.nodes[v1]['pos'])
                 p2 = np.array(self.graph.nodes[v2]['pos'])
-=======
-                p1 = np.array(pos[i])
-                p2 = np.array(pos[(i + 1) % 6])
->>>>>>> Stashed changes
                 new_surface_area += 0.5 * abs(p1[0] * p2[1] - p2[0] * p1[1])
             
             # compute new height
