@@ -1,14 +1,7 @@
 
 from globals import *
 import tissue
-import time
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
-import matplotlib.image as mpimg
-import os
-import sys
-sys.stdout = open("output_log.txt", "w")
-print(animation.writers.list())
+
 
 
 # add some pertubations to check plotting
@@ -121,6 +114,7 @@ if __name__ == "__main__":
     time_limit=20
     frames_dir = "./frames_dir"
     outpur_dir = "./output_dir"
+    sys.stdout = open(os.path.join(outpur_dir,"log.txt"), "w")
     T = tissue.Tissue(cell_radius=cell_radius, num_cols=tissue_size, num_rows=tissue_size)
 
     # run
@@ -128,7 +122,6 @@ if __name__ == "__main__":
     total_energy = run_simulation(T, time_limit=time_limit, output_dir=frames_dir)
 
     # save plots
-
     os.makedirs(outpur_dir, exist_ok=True)
     replay_simulation(frames_dir=frames_dir, num_of_frames=time_limit, output_file=os.path.join(outpur_dir,"simulation.mp4"))
     plot_energy_graph(total_energy, save_graph=True, output_path=os.path.join(outpur_dir,"energy_graph.png"))

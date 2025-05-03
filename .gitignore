@@ -175,3 +175,5 @@ cython_debug/
 
 
 *.png
+*.mp4
+log.txt

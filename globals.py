@@ -1,13 +1,18 @@
 import os
+import sys
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-import matplotlib.cm as cm
 import seaborn as sns
 import torch
 import networkx as nx
 import random
 import math
+import time
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+import matplotlib.cm as cm
+import matplotlib.animation as animation
+import matplotlib.image as mpimg
+
 
 
 
@@ -29,8 +34,8 @@ neurons_cmap = 'Blues'
 # cell size
 cell_radius = 1
 cell_volume = 1
-cell_initial_vertex_length = math.sqrt(3) * cell_radius
-cell_initial_surface_area = 3 * math.sqrt(3) / 2 * cell_initial_vertex_length**2
+cell_initial_vertex_length = cell_radius
+cell_initial_surface_area = 6 * 0.5 * ((cell_radius ** 2) * math.sqrt(3) / 2)
 cell_initial_height = cell_volume / cell_initial_surface_area
 
 # probs
@@ -44,7 +49,7 @@ spring_constant_internal = 0      # spring between opposite vertices of the same
 line_tension_constant = 0    # causes neurons to shrink
 internal_rest_length = cell_radius * 2 * 0.7     # rest length of the internal spring
 boundary_rest_length = cell_initial_vertex_length * 0.7     # rest length of the boundary spring
-marginal_rest_length = (cell_initial_vertex_length * 0.5) 
+marginal_rest_length = (cell_initial_vertex_length * 0.7) 
 
 
 # constrints
