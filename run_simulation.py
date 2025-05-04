@@ -22,9 +22,10 @@ def add_pertubation(T:tissue.Tissue):
             T.graph.nodes[n]['pos'] = new_pos
 
 
-def run_simulation(T:tissue.Tissue, time_limit:int, output_dir:str):
+def run_simulation(simulation_name:str, T:tissue.Tissue, time_limit:int):
     total_energy = []
 
+    output_dir = os.path.join('results', simulation_name, "frames")
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
@@ -56,21 +57,25 @@ def run_simulation(T:tissue.Tissue, time_limit:int, output_dir:str):
         T.update_heights()
         total_energy.append(T.compute_total_energy())
 
-        #dispaly forces on each node
-        for i, node in enumerate(T.graph.nodes):
-            cell_type = ""
-            if T.graph.nodes[node]['neuron']:
-                cell_type +="neuron"
-            if T.graph.nodes[node]['boundary']:
-                if cell_type:
-                    cell_type += "_"
-                cell_type += "boundary"
-            print(f"Node {i}: {cell_type}  {node} {T.graph.nodes[node]['force']}")
+        # #dispaly forces on each node
+        # for i, node in enumerate(T.graph.nodes):
+        #     cell_type = ""
+        #     if T.graph.nodes[node]['neuron']:
+        #         cell_type +="neuron"
+        #     if T.graph.nodes[node]['boundary']:
+        #         if cell_type:
+        #             cell_type += "_"
+        #         cell_type += "boundary"
+        #     print(f"Node {i}: {cell_type}  {node} {T.graph.nodes[node]['force']}")
     
     return total_energy
 
+def replay_simulation(simulation_name, num_of_frames: int, fps: int = 2):
+    frames_dir = os.path.join('results', simulation_name, "frames")
+    if not os.path.exists(frames_dir):
+        raise FileNotFoundError(f"Could not find frames directory at {frames_dir}")
+    
 
-def replay_simulation(frames_dir: str, num_of_frames: int, output_file: str = "simulation.mp4", fps: int = 2):
     fig, ax = plt.subplots()
 
     first_frame_path = os.path.join(frames_dir, "tissue_frame_1.png")
@@ -89,17 +94,19 @@ def replay_simulation(frames_dir: str, num_of_frames: int, output_file: str = "s
     plt.tight_layout()
 
     # Save animation as MP4 using ffmpeg writer
+    output_file = os.path.join('results', simulation_name, "simulation.mp4")
     ani.save(output_file, writer='ffmpeg', fps=fps)
 
     plt.close(fig)
 
-def plot_energy_graph(total_energy, save_graph:bool = False, output_path:str = None):
+def plot_energy_graph(simulation_name, total_energy, save_graph:bool = False):
     
     plt.plot(total_energy)
     plt.xlabel("Time step")
     plt.ylabel("Total Energy")
     plt.title("Total Energy Over Time")
     plt.grid(True)
+    output_path = os.path.join('results', simulation_name, "energy_graph.png")
 
     if save_graph and (output_path != None):
         plt.savefig(output_path)
@@ -112,24 +119,26 @@ if __name__ == "__main__":
     #init
     tissue_size = 5
     time_limit=20
-    frames_dir = "./frames_dir"
-    outpur_dir = "./output_dir"
-    sys.stdout = open(os.path.join(outpur_dir,"log.txt"), "w")
+    simulation_name = 'test_simulation'
+    results_dir = os.path.join('results', simulation_name)
+    if not os.path.exists(results_dir):
+        os.makedirs(results_dir)
+    sys.stdout = open(os.path.join(results_dir, "log.txt"), "w")
     T = tissue.Tissue(cell_radius=cell_radius, num_cols=tissue_size, num_rows=tissue_size)
 
     # run
     #add_pertubation(T)
     print(f"Starting Simulation for {time_limit} intervals:")
     print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
-    total_energy = run_simulation(T, time_limit=time_limit, output_dir=frames_dir)
+    frames_dir = os.path.join('results', simulation_name, "frames")
+    total_energy = run_simulation(simulation_name=simulation_name, T=T, time_limit=time_limit)
     print("\nFinished Simulation Succesfully.")
     print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
     # save plots
-    os.makedirs(outpur_dir, exist_ok=True)
-    replay_simulation(frames_dir=frames_dir, num_of_frames=time_limit, output_file=os.path.join(outpur_dir,"simulation.mp4"))
-    plot_energy_graph(total_energy, save_graph=True, output_path=os.path.join(outpur_dir,"energy_graph.png"))
+    replay_simulation(simulation_name, num_of_frames=time_limit)
+    plot_energy_graph(total_energy, save_graph=True, output_path=os.path.join(results_dir,"energy_graph.png"))
 
-    print(f"Saved Simulation on {outpur_dir}.")
+    print(f"Saved Simulation on {results_dir}.")
     print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
     print("Done.")
 
