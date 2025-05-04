@@ -114,7 +114,6 @@ class Tissue:
         nx.set_node_attributes(self.graph, False, 'boundary')  # Set default to False
         nx.set_node_attributes(self.graph, boundary_attr, 'boundary')  # Update boundary nodes to True
 
-
     def plot_tissue(self, ax=None, legend=False):
         # get positions
         pos = nx.get_node_attributes(self.graph, 'pos')
@@ -156,17 +155,26 @@ class Tissue:
             node_color=node_colors,
             ax=ax
         )
+    
 
         # Compute global min and max height for normalization
-        min_h, max_h = 0.1, 0.9
+
+        log_min = np.log10(min_height)
+        log_max = np.log10(max_height)
+        norm = colors.Normalize(vmin=log_min, vmax=log_max)
 
         for cell in self.cells:
-            hex_nodes = cell.get_nodes()
+            node_keys = cell.get_nodes()
+            node_positions = [self.graph.nodes[key]['pos'] for key in node_keys]
             color_map = neurons_cmap if cell.is_neuron() else non_neurons_cmap
-            norm_height = (cell.get_height() - min_h) / (max_h - min_h)  # Normalize height
-            color = cm.get_cmap(color_map)(1 - norm_height)  # Reversed color mapping (higher = darker)
-            poly_coords = [pos[node] for node in hex_nodes]
-            ax.fill(*zip(*poly_coords), color=color, alpha=0.8)  # stronger color
+
+            height = cell.get_height()
+            safe_height = max(height, min_height)  # prevent log10 errors
+            log_height = np.log10(safe_height)
+
+            color = cm.get_cmap(color_map)(norm(log_height))
+            ax.fill(*zip(*node_positions), color=color, alpha=0.8)
+
 
         if legend:
             neuron_patch = patches.Patch(color=cm.get_cmap(neurons_cmap)(0.5), label='Neuron')
@@ -179,7 +187,30 @@ class Tissue:
         if created_fig:
             plt.show()
 
-        
+    def plot_heights_distribution(self, ax=None, bins=30, log_scale=True):
+        """
+        Plot the distribution of cell heights using seaborn.
+        """
+        heights = [cell.get_height() for cell in self.cells]
+
+        if ax is None:
+            fig, ax = plt.subplots(figsize=(6, 4))
+
+        sns.histplot(heights, bins=bins, kde=False, stat='probability', color='blue', alpha=0.6, ax=ax)
+        ax.set_xlabel('Cell Height')
+        ax.set_ylabel('proportion')
+        ax.set_title('Distribution of Cell Heights')
+        ax.set_ylim(0, 1)
+        ax.set_xlim(min_height, max_height)
+
+        if log_scale:
+            ax.set_xscale('log')
+            min_height_log, max_height_log = np.log10(min_height), np.log10(max_height)
+            ax.set_xlim(min_height_log, max_height_log)
+            ax.set_title('Distribution of Cell Heights (Log Scale)')
+
+        plt.show()
+
 
     
     def _compute_force(self, force_name: str, v1, v2):
@@ -215,6 +246,8 @@ class Tissue:
         - update position, x = x + v * dt
         """
         for node in self.graph.nodes:
+
+            # get position and force
             pos = np.array(self.graph.nodes[node]['pos'], dtype=float)
             force = np.array(self.graph.nodes[node]['force'], dtype=float)
 
@@ -225,7 +258,6 @@ class Tissue:
             new_pos = pos + velocity * dt
 
             self.graph.nodes[node]['pos'] = tuple(new_pos)
-
 
     def _f_spring(self, v1, v2):
         """
@@ -243,14 +275,14 @@ class Tissue:
         rest_length = globals()[f"{edge_type}_rest_length"]
 
         # Repulsion if distance is less than minimal allowed
-        if dist < min_length:
-            print(f"[Warning]: distance between {v1}, {v2} is below minimal ({dist:.3f} < {min_length})")
-            # Apply a repulsive force to push apart strongly
-            force_magnitude = spring_constant * (dist - rest_length)
-            repulsion_strength = 1.5  # or higher if needed
-            force_magnitude = repulsion_strength * spring_constant * (dist - min_length)
-        else:
-            force_magnitude = spring_constant * (dist - rest_length)
+        # if dist < min_length:
+        #     print(f"[Warning]: distance between {v1}, {v2} is below minimal ({dist:.3f} < {min_length})")
+        #     # Apply a repulsive force to push apart strongly
+        #     force_magnitude = spring_constant * (dist - rest_length)
+        #     repulsion_strength = 1.5  # or higher if needed
+        #     force_magnitude = repulsion_strength * spring_constant * (dist - min_length)
+        # else:
+        force_magnitude = spring_constant * (dist - rest_length)
 
 
         force_vector = np.array([force_magnitude * dx / dist, force_magnitude * dy / dist])
@@ -278,8 +310,7 @@ class Tissue:
             return force_vector
         else:
             return np.array([0.0, 0.0])
-
-    
+ 
     def _get_edge_type(self, v1, v2):
         edge_data = self.graph.get_edge_data(v1, v2)
         if edge_data is not None:
@@ -289,25 +320,19 @@ class Tissue:
     def update_heights(self):
         """
         Update the volume of each cell based on the positions of its vertices.
-        Aassume cell volume is constant, compute the new surface area, and update cell height
+        Assuming conservation of volume.
         """
         for cell in self.cells:
-            hex_nodes = cell.get_nodes()
-            #pos = [self.graph.nodes[node]['pos'] for node in hex_nodes]
 
-            # compute new surface area
-            new_surface_area = 0
-            for i in range(6):
-                v1 = hex_nodes[i]
-                v2 = hex_nodes[(i + 1) % 6]
-                p1 = np.array(self.graph.nodes[v1]['pos'])
-                p2 = np.array(self.graph.nodes[v2]['pos'])
-                new_surface_area += 0.5 * abs(p1[0] * p2[1] - p2[0] * p1[1])
-            
-            # compute new height
-            new_height = cell_volume / new_surface_area
+            node_keys = cell.get_nodes()
+            node_positions = [self.graph.nodes[key]['pos'] for key in node_keys]
 
-            cell.update_height(new_height)    
+            # formula for polygon area
+            x, y = zip(*node_positions)
+            area = 0.5 * abs(sum(x[i]*y[(i+1)%6] - x[(i+1)%6]*y[i] for i in range(6)))
+
+            new_height = cell_volume / area  
+            cell.update_height(new_height)
 
     def _get_distances(self, v1, v2):
         p1 = np.array(self.graph.nodes[v1]['pos'])

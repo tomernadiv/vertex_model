@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import matplotlib.cm as cm
 import matplotlib.animation as animation
+from matplotlib import colors
 import matplotlib.image as mpimg
 
 
@@ -33,27 +34,35 @@ neurons_cmap = 'Blues'
 
 # cell size
 cell_radius = 1
-cell_volume = 1
+cell_volume = 6 * 0.5 * ((cell_radius ** 2) * math.sqrt(3) / 2) # so that initial height will be 1
 cell_initial_vertex_length = cell_radius
 cell_initial_surface_area = 6 * 0.5 * ((cell_radius ** 2) * math.sqrt(3) / 2)
 cell_initial_height = cell_volume / cell_initial_surface_area
 
 # probs
-neuron_prob = 0.5 # probability of a cell being a neuron
+neuron_prob = 0.5                    # probability of a cell being a neuron
 
 # mechanical properties
-mu = 0.5                         # friction coefficient
-spring_constant_marginal = 1        # spring between neighbouring vertices
-spring_constant_boundary = 1        # spring between boundary vertices (vertices with 3 neighbours)
-spring_constant_internal = 0      # spring between opposite vertices of the same cell
-line_tension_constant = 0    # causes neurons to shrink
-internal_rest_length = cell_radius * 2 * 0.7     # rest length of the internal spring
-boundary_rest_length = cell_initial_vertex_length * 0.7     # rest length of the boundary spring
-marginal_rest_length = (cell_initial_vertex_length * 0.7) 
+mu = 0.1                            # friction coefficient
+spring_constant_marginal = 1         # spring between neighbouring vertices
+spring_constant_boundary = 1         # spring between boundary vertices (vertices with 3 neighbours)
+spring_constant_internal = 2         # spring between opposite vertices of the same cell
+line_tension_constant = 1            # causes neurons to shrink
+internal_rest_length = cell_radius * 1.05
+boundary_rest_length = cell_radius * 0.99
+marginal_rest_length = cell_radius * 0.99
 
 
-# constrints
+# constraints
 marginal_min_length = 0.1
 internal_min_length = 0.1
 boundary_min_length = 0.1
+
+
+
+
+
+# for plotting
+min_height = 0.9
+max_height = 10 ** 1.5
 
