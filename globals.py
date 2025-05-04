@@ -43,14 +43,14 @@ cell_initial_height = cell_volume / cell_initial_surface_area
 neuron_prob = 0.5                    # probability of a cell being a neuron
 
 # mechanical properties
-mu = 0.1                            # friction coefficient
+mu = 0.5                            # friction coefficient
 spring_constant_marginal = 1         # spring between neighbouring vertices
 spring_constant_boundary = 1         # spring between boundary vertices (vertices with 3 neighbours)
-spring_constant_internal = 2         # spring between opposite vertices of the same cell
+spring_constant_internal = 1         # spring between opposite vertices of the same cell
 line_tension_constant = 1            # causes neurons to shrink
-internal_rest_length = cell_radius * 1.05
-boundary_rest_length = cell_radius * 0.99
-marginal_rest_length = cell_radius * 0.99
+internal_rest_length = cell_radius
+boundary_rest_length = cell_radius
+marginal_rest_length = cell_radius
 
 
 # constraints
@@ -63,6 +63,6 @@ boundary_min_length = 0.1
 
 
 # for plotting
-min_height = 0.9
-max_height = 10 ** 1.5
+min_height = 10e-1
+max_height = 10e1
 

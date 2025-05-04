@@ -91,7 +91,6 @@ class Tissue:
                 height = cell_initial_height                # can be modified later with a smarter logic
 
                 is_neuron = row > (int(self.num_rows/2) - 1)
-                is_neuron = True
                 if is_neuron:
                     for node in hex_nodes:
                         self.graph.nodes[node]['neuron'] = True # set neuron flag for all vertices of the cell

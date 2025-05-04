@@ -22,7 +22,7 @@ def add_pertubation(T:tissue.Tissue):
             T.graph.nodes[n]['pos'] = new_pos
 
 
-def run_simulation(simulation_name:str, T:tissue.Tissue, time_limit:int):
+def run_simulation(simulation_name:str, T:tissue.Tissue, time_limit:int, dt=0.01):
     total_energy = []
 
     output_dir = os.path.join('results', simulation_name, "frames")
@@ -52,8 +52,8 @@ def run_simulation(simulation_name:str, T:tissue.Tissue, time_limit:int):
         time.sleep(0.5)
         
         # Update for next iteration
-        T.compute_all_forces(['spring'])  # or ['spring', 'line_tension'] if needed
-        T.update_positions(dt=0.5)
+        T.compute_all_forces(['spring', 'line_tension'])
+        T.update_positions(dt=dt)
         T.update_heights()
         total_energy.append(T.compute_total_energy())
 
@@ -117,8 +117,8 @@ def plot_energy_graph(simulation_name, total_energy, save_graph:bool = False):
 if __name__ == "__main__":
     
     #init
-    tissue_size = 5
-    time_limit=20
+    tissue_size = 10
+    time_limit=25
     simulation_name = 'test_simulation'
     results_dir = os.path.join('results', simulation_name)
     if not os.path.exists(results_dir):
@@ -135,8 +135,8 @@ if __name__ == "__main__":
     print("\nFinished Simulation Succesfully.")
     print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
     # save plots
-    replay_simulation(simulation_name, num_of_frames=time_limit)
-    plot_energy_graph(total_energy, save_graph=True, output_path=os.path.join(results_dir,"energy_graph.png"))
+    replay_simulation(simulation_name=simulation_name, num_of_frames=time_limit)
+    plot_energy_graph(simulation_name=simulation_name, total_energy=total_energy, save_graph=True)
 
     print(f"Saved Simulation on {results_dir}.")
     print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
