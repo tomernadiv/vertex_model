@@ -1,47 +1,22 @@
 from globals import *
 from cell import Cell
 from networkx.algorithms.boundary import edge_boundary
-
+import neuron_initiation 
 
 
 class Tissue:
-    def __init__(self, cell_radius, num_rows, num_cols):
+    def __init__(self, cell_radius, num_rows, num_cols, n_init_func = "half_tissue", num_out_layers=0):
         self.cell_radius = cell_radius
         self.num_rows = num_rows
         self.num_cols = num_cols
         self.num_cells = num_rows * num_cols
         self.graph = nx.Graph()
         self.cells: list[Cell] = []
+        self.n_init_func = n_init_func
+        self.num_out_layers = num_out_layers
 
         self._create_grid()
 
-    def _find_boundary(self, G):
-        """Find the boundary edges of a hexagonal graph based on 'marginal' edges."""
-        boundary_edges = []
-        boundary_nodes = set()
-        for u, v, attrs in G.edges(data=True):
-            edge_type = attrs.get('edge_type')
-            if edge_type != 'marginal':
-                continue  # Skip non-marginal edges
-
-            # Count 'marginal' edges connected to u
-            marginal_degree_u = sum(
-                1 for nbr in G.neighbors(u)
-                if G[u][nbr].get('edge_type') == 'marginal'
-            )
-
-            # Count 'marginal' edges connected to v
-            marginal_degree_v = sum(
-                1 for nbr in G.neighbors(v)
-                if G[v][nbr].get('edge_type') == 'marginal'
-            )
-
-            # If either node has fewer than 3 'marginal' connections, or both has exaactly 5 connections it's a boundary edge
-            if (marginal_degree_u < 3 or marginal_degree_v < 3) or (G.degree(u) == 5 and G.degree(v) == 5):
-                boundary_edges.append((u, v))
-                boundary_nodes.update([u, v])
-
-        return boundary_edges, boundary_nodes
     
     def _create_grid(self):
         dx = 3/2 * self.cell_radius
@@ -89,8 +64,10 @@ class Tissue:
 
                 cell_index = int(row * self.num_cols + col)
                 height = cell_initial_height                # can be modified later with a smarter logic
+                
+                is_neuron = (neuron_initiation.__dict__[self.n_init_func](row, self.num_rows)) and (not neuron_initiation.outline(self.num_out_layers, row, self.num_rows, col, self.num_cols))
+                
 
-                is_neuron = row > (int(self.num_rows/2) - 1)
                 if is_neuron:
                     for node in hex_nodes:
                         self.graph.nodes[node]['neuron'] = True # set neuron flag for all vertices of the cell
@@ -112,6 +89,34 @@ class Tissue:
         boundary_attr = {node: True for node in boundary_nodes}
         nx.set_node_attributes(self.graph, False, 'boundary')  # Set default to False
         nx.set_node_attributes(self.graph, boundary_attr, 'boundary')  # Update boundary nodes to True
+    
+    def _find_boundary(self, G):
+        """Find the boundary edges of a hexagonal graph based on 'marginal' edges."""
+        boundary_edges = []
+        boundary_nodes = set()
+        for u, v, attrs in G.edges(data=True):
+            edge_type = attrs.get('edge_type')
+            if edge_type != 'marginal':
+                continue  # Skip non-marginal edges
+
+            # Count 'marginal' edges connected to u
+            marginal_degree_u = sum(
+                1 for nbr in G.neighbors(u)
+                if G[u][nbr].get('edge_type') == 'marginal'
+            )
+
+            # Count 'marginal' edges connected to v
+            marginal_degree_v = sum(
+                1 for nbr in G.neighbors(v)
+                if G[v][nbr].get('edge_type') == 'marginal'
+            )
+
+            # If either node has fewer than 3 'marginal' connections, or both has exaactly 5 connections it's a boundary edge
+            if (marginal_degree_u < 3 or marginal_degree_v < 3) or (G.degree(u) == 5 and G.degree(v) == 5):
+                boundary_edges.append((u, v))
+                boundary_nodes.update([u, v])
+
+        return boundary_edges, boundary_nodes
 
     def plot_tissue(self, ax=None, legend=False):
         # get positions
@@ -271,21 +276,20 @@ class Tissue:
         edge_type = self._get_edge_type(v1, v2)
         spring_constant = globals()[f"spring_constant_{edge_type}"]
         min_length = globals()[f"{edge_type}_min_length"]
-        rest_length = globals()[f"{edge_type}_rest_length"]
 
-        # Repulsion if distance is less than minimal allowed
-        # if dist < min_length:
-        #     print(f"[Warning]: distance between {v1}, {v2} is below minimal ({dist:.3f} < {min_length})")
-        #     # Apply a repulsive force to push apart strongly
-        #     force_magnitude = spring_constant * (dist - rest_length)
-        #     repulsion_strength = 1.5  # or higher if needed
-        #     force_magnitude = repulsion_strength * spring_constant * (dist - min_length)
-        # else:
+        rest_length = self._get_rest_length(v1, v2, edge_type)
         force_magnitude = spring_constant * (dist - rest_length)
 
 
         force_vector = np.array([force_magnitude * dx / dist, force_magnitude * dy / dist])
         return force_vector
+
+    def _get_rest_length(self, v1, v2, edge_type):
+        if self._is_nueron_edge(v1, v2):
+            rest_length = globals()[f"{edge_type}_rest_length"]
+        else:
+            rest_length = globals()[f"non_neuron_{edge_type}_rest_length"]
+        return rest_length
     
     def _f_line_tension(self, v1, v2):
         """
@@ -295,7 +299,7 @@ class Tissue:
         edge_type = self._get_edge_type(v1, v2)
 
         # don't compute on internal or boundary edges?? 
-        if ((self.graph.nodes[v1]['neuron'] and self.graph.nodes[v2]['neuron'])) and (edge_type == "marginal"):
+        if ((self._is_nueron_edge(v1, v2))) and (edge_type == "marginal"):
 
             dx, dy, dist = self._get_distances(v1,v2)
 
@@ -309,6 +313,9 @@ class Tissue:
             return force_vector
         else:
             return np.array([0.0, 0.0])
+        
+    def _is_nueron_edge(self, v1, v2):
+        return (self.graph.nodes[v1]['neuron'] and self.graph.nodes[v2]['neuron'])
  
     def _get_edge_type(self, v1, v2):
         edge_data = self.graph.get_edge_data(v1, v2)
@@ -333,11 +340,38 @@ class Tissue:
             new_height = cell_volume / area  
             cell.update_height(new_height)
 
+    def compute_total_area(self):
+        """
+        Compute the total area of the tissue.
+        """
+        total_area = 0
+        for cell in self.cells:
+
+            node_keys = cell.get_nodes()
+            node_positions = [self.graph.nodes[key]['pos'] for key in node_keys]
+
+            # formula for polygon area
+            x, y = zip(*node_positions)
+            area = 0.5 * abs(sum(x[i]*y[(i+1)%6] - x[(i+1)%6]*y[i] for i in range(6)))
+
+            total_area += area 
+        return total_area
+
     def _get_distances(self, v1, v2):
+        def smart_round(val):
+            """
+            if the number is close to an integer - round to the integer
+            """
+            return round(val) if abs(val - round(val)) < 1e-3  else val #round(val, 3)
+    
         p1 = np.array(self.graph.nodes[v1]['pos'])
         p2 = np.array(self.graph.nodes[v2]['pos'])
         dx, dy = p2 - p1
         dist = math.sqrt(dx**2 + dy**2)
+
+        dx = smart_round(dx)
+        dy = smart_round(dy)
+        dist = smart_round(dist)
         return dx, dy, dist
     
     def compute_total_energy(self):
@@ -348,7 +382,7 @@ class Tissue:
             
             edge_type = self._get_edge_type(v1, v2)
             spring_constant = globals()[f"spring_constant_{edge_type}"]
-            rest_length = globals()[f"{edge_type}_rest_length"]
+            rest_length = self._get_rest_length(v1, v2, edge_type)
 
             # if (not (self.graph.nodes[v1]['neuron'] and self.graph.nodes[v2]['neuron'])):
             #     #not sure if this is the contribution of line tention
