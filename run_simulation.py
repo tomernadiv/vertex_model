@@ -1,6 +1,7 @@
 
 from globals import *
 import tissue
+import pickle
 
 
 
@@ -36,14 +37,28 @@ def dispaly_forces_func(T):
 
 
 def run_simulation(simulation_name:str, T:tissue.Tissue, time_limit:int,
-                    save_frame_interval = 10, dt=0.001, dispaly_forces:bool = False):
+                    save_frame_interval = 10, dt=0.001, 
+                    convergence_threshold=5e-4,
+                    dispaly_forces:bool = False):
+    
+    # check if saving folder exists, if it is, erase it
+    output_dir = os.path.join('results', simulation_name)
+    if os.path.exists(output_dir):
+        import shutil
+        shutil.rmtree(output_dir)
+    os.makedirs(output_dir)
+    
+    # define convergence window - 1% of total simulation steps
+    convergence_window = int(0.01 * time_limit)
+    print(f"Convergence window: {convergence_window} steps")
+
     total_energy = []
+    all_amplitudes = []
     initial_energy = T.compute_total_energy()
     total_energy.append(initial_energy)
 
 
     initial_total_area = T.compute_total_area()
-
     output_dir = os.path.join('results', simulation_name, "frames")
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -53,30 +68,17 @@ def run_simulation(simulation_name:str, T:tissue.Tissue, time_limit:int,
         T.graph.nodes[node]['force'] = np.array([0.0, 0.0])
     
 
-
-
     # iterate overthe graph
     for t in range(0, time_limit):
         print(f"\n---------------------Time {t}---------------------")
 
 
         if t % save_frame_interval == 0:
-            # # show distances
-            # i = 0
-            # for v1, v2 in T.graph.edges:
-            #     i+=1
-            #     dx, dy, dist = T._get_distances(v1, v2)
-            #     edge_type = T._get_edge_type(v1, v2)
-            #     print(f"{edge_type}: {dist}")
-            #     if i > 10:
-            #         break
-
 
             # Save the tisuue frame
             fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))  # Side-by-side axes
             ax1.set_title(f"Timestamp: {t}")
             T.plot_tissue(ax=ax1) 
-
 
             # Energy plot
             ax2.plot(range(t + 1), total_energy, color='tab:red')
@@ -110,38 +112,55 @@ def run_simulation(simulation_name:str, T:tissue.Tissue, time_limit:int,
 
         if dispaly_forces:
             dispaly_forces_func(T)
+
+
+        # check for convergence
+        if t > convergence_window:
+            recent_energy = total_energy[-convergence_window:]
+            energy_diff = np.max(recent_energy) - np.min(recent_energy)
+            print('Energy difference:', energy_diff)
+            all_amplitudes.append(energy_diff)
+            temp_total_area = T.compute_total_area()
+            area_perc = (temp_total_area/initial_total_area) * 100
+            print('Area Percentage:', area_perc)
+            if energy_diff < convergence_threshold:
+                print(f"Converged at time step {t}")
+                break
         
     
-    return total_energy
+    return total_energy, all_amplitudes
 
-def replay_simulation(simulation_name, save_frame_interval, num_of_frames: int, fps: int = 2):
+
+def replay_simulation(simulation_name: str, fps: int = 2):
     frames_dir = os.path.join('results', simulation_name, "frames")
     if not os.path.exists(frames_dir):
         raise FileNotFoundError(f"Could not find frames directory at {frames_dir}")
     
+    # Get and sort all frame paths
+    frame_files = sorted(
+        [f for f in os.listdir(frames_dir) if f.endswith(".png")],
+        key=lambda x: int(x.split('_')[-1].split('.')[0])  # assumes "tissue_frame_#.png"
+    )
+    if not frame_files:
+        raise FileNotFoundError("No PNG frames found in frames directory.")
 
     fig, ax = plt.subplots()
+    img = ax.imshow(mpimg.imread(os.path.join(frames_dir, frame_files[0])))
+    ax.axis('off')  # optional: hide axes
 
-    first_frame_path = os.path.join(frames_dir, "tissue_frame_0.png")
-    if not os.path.exists(first_frame_path):
-        raise FileNotFoundError(f"Could not find first frame at {first_frame_path}")
-    
-    img = ax.imshow(mpimg.imread(first_frame_path))
-
-    def update(frame):
-        frame_path = os.path.join(frames_dir, f"tissue_frame_{frame}.png")
-        img.set_data(mpimg.imread(frame_path))
+    def update(i):
+        img.set_data(mpimg.imread(os.path.join(frames_dir, frame_files[i])))
         return [img]
 
-    ani = animation.FuncAnimation(fig, update, frames=range(0, num_of_frames, save_frame_interval), interval=500, blit=True, repeat=False)
+    ani = animation.FuncAnimation(
+        fig, update, frames=len(frame_files), interval=1000/fps, blit=True, repeat=False
+    )
 
-    plt.tight_layout()
-
-    # Save animation as MP4 using ffmpeg writer
     output_file = os.path.join('results', simulation_name, "simulation.mp4")
     ani.save(output_file, writer='ffmpeg', fps=fps)
-
     plt.close(fig)
+
+
 
 def plot_energy_graph(simulation_name, total_energy, save_graph:bool = False):
     
@@ -158,37 +177,83 @@ def plot_energy_graph(simulation_name, total_energy, save_graph:bool = False):
         plt.show()
 
 
-if __name__ == "__main__":
+def simulation(dt, tissue_size, save_frame_interval, time_limit):
     
-    #init
-    tissue_size = 10
-    time_limit=100
-    save_frame_interval = 10
-    simulation_name = 'test_simulation_3'
+    simulation_name = f'test_dt={dt}'
+
+    # sanity check orints
+    print("Simulation Parameters:")
+    print(f"dt: {dt}")
+    print(f"tissue_size: {tissue_size}")
+    print(f"time_limit: {time_limit}")
+    print(f"save_frame_interval: {save_frame_interval}")
+
+    # initialize tissue
     T = tissue.Tissue(cell_radius=cell_radius, num_cols=tissue_size, num_rows=tissue_size, n_init_func="all_neurons", num_out_layers=2)
 
-    #reults
+    # create rsults directory
     results_dir = os.path.join('results', simulation_name)
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
     sys.stdout = open(os.path.join(results_dir, "log.txt"), "w")
     
-
     # run
-    #add_pertubation(T)
     print(f"Starting Simulation for {time_limit} intervals:")
     print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
     frames_dir = os.path.join('results', simulation_name, "frames")
-    total_energy = run_simulation(simulation_name=simulation_name, T=T, time_limit=time_limit, save_frame_interval = save_frame_interval)
+    total_energy, all_amplitudes = run_simulation(simulation_name=simulation_name, T=T, time_limit=time_limit, save_frame_interval = save_frame_interval, dt=dt)
     print("\nFinished Simulation Succesfully.")
     print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
-    # # save plots
-    replay_simulation(simulation_name=simulation_name,save_frame_interval= save_frame_interval, num_of_frames=time_limit)
+    
+    
+    # save plots
+    replay_simulation(simulation_name=simulation_name)
     plot_energy_graph(simulation_name=simulation_name, total_energy=total_energy, save_graph=True)
-
-    # print(f"Saved Simulation on {results_dir}.")
-    # print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
-    # print("Done.")
+    return total_energy, all_amplitudes
 
 
 
+
+
+
+
+def convergence_plots():
+    dts = [i for i in range(1,8)]
+    max_time_limit = 10**7
+    time_limits = [min(int(10**(i+2)),max_time_limit) for i in range(1,len(dts)+1)]
+    tissue_size = 10
+    results = {'amps': {dt: [] for dt in dts},
+               'energy': {dt: [] for dt in dts}}
+
+    # iterate on all dt values
+    for i in range(1, len(dts)+1):
+        dt = 10 ** -dts[i]
+        time_limit = time_limits[i]
+        save_frame_interval = int(time_limit // 100) # save 100 frames
+    
+        # run simulation
+        energy_per_frame, all_amplitdes = simulation(dt, tissue_size, save_frame_interval, time_limit)
+        results['amps'][i] = all_amplitdes
+        results['energy'][i] = energy_per_frame
+
+    # save the results dict using pickle
+    with open('results.pkl', 'wb') as f:
+        pickle.dump(results, f)
+
+    # plot average convergence amplitude as function of dt
+    means = [np.mean(results['amps'][i]) for i in dts]
+    stds = [np.std(results['amps'][i]) for i in dts]
+    dts = [10 ** -i for i in dts]
+    fig, ax = plt.subplots(figsize=(10, 5))
+    plt.plot(dts, means, 'o-')
+    plt.fill_between(dts, np.array(means) - np.array(stds), np.array(means) + np.array(stds), alpha=0.2)
+    ax.set_xscale('log')
+    ax.set_xlabel("dt")
+    ax.set_ylabel("Amplitude")
+    ax.set_title("Average (and STD) of Energy Amplitude as Function of dt")
+    ax.grid(True)
+    plt.savefig('amplitude_plot.png')
+
+
+if __name__ == "__main__":
+    convergence_plots()

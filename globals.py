@@ -42,11 +42,11 @@ cell_initial_height = cell_volume / cell_initial_surface_area
 
 
 # mechanical properties
-mu = 0.5                            # friction coefficient
+mu = 1                               # friction coefficient
 spring_constant_marginal = 1         # spring between neighbouring vertices
 spring_constant_boundary = 1         # spring between boundary vertices (vertices with 3 neighbours)
 spring_constant_internal = 1         # spring between opposite vertices of the same cell
-line_tension_constant = 1            # causes neurons to shrink
+line_tension_constant = 10           # causes neurons to shrink
 internal_rest_length = 2 * cell_initial_vertex_length * 0.9
 boundary_rest_length = cell_initial_vertex_length * 0.9
 marginal_rest_length = cell_initial_vertex_length * 0.9
