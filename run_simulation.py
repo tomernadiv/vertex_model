@@ -91,7 +91,7 @@ def run_simulation(simulation_name:str, T:tissue.Tissue, time_limit:int,
             plt.close(fig)
         
         # Update for next iteration
-        T.compute_all_forces(['spring', 'line_tension'])
+        T.compute_all_forces(['spring'])
         T.update_positions(dt=dt)
         T.update_heights()
         total_energy.append(T.compute_total_energy())
@@ -235,9 +235,9 @@ def convergence_plots():
 
 
 if __name__ == "__main__":
-    simulation_name='dt=0.0001_line_tension=True_2'
-    T = tissue.Tissue(cell_radius=cell_radius, num_cols=20, num_rows=20, n_init_func="all_neurons", num_out_layers=5)
-    total_energy = run_simulation(simulation_name=simulation_name, time_limit=5000, T=T, dt=0.0001, save_frame_interval=100)
+    simulation_name='one_hex'
+    T = tissue.Tissue(cell_radius=cell_radius, num_cols=1, num_rows=1, n_init_func="all_neurons", num_out_layers=5)
+    total_energy = run_simulation(simulation_name=simulation_name, time_limit=5000, T=T, dt=0.000001, save_frame_interval=100)
     replay_simulation(simulation_name=simulation_name)
     plot_energy_graph(simulation_name=simulation_name, total_energy=total_energy, save_graph=True)
     np.save(os.path.join('results', simulation_name, "energy.npy"), total_energy)
