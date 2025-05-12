@@ -46,11 +46,11 @@ mu = 1                               # friction coefficient
 spring_constant_marginal = 1         # spring between neighbouring vertices
 spring_constant_boundary = 1         # spring between boundary vertices (vertices with 3 neighbours)
 spring_constant_internal = 1         # spring between opposite vertices of the same cell
-line_tension_constant = 10           # causes neurons to shrink
+line_tension_constant = 0.1         # causes neurons to shrink
 internal_rest_length = 2 * cell_initial_vertex_length * 0.9
 boundary_rest_length = cell_initial_vertex_length * 0.9
 marginal_rest_length = cell_initial_vertex_length * 0.9
-non_neuron_internal_rest_length = 2 * cell_initial_vertex_length
+non_neuron_internal_rest_length = 2 * cell_initial_vertex_length * 0.9
 non_neuron_boundary_rest_length = cell_initial_vertex_length
 non_neuron_marginal_rest_length = cell_initial_vertex_length
 

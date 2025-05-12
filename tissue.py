@@ -278,7 +278,7 @@ class Tissue:
         min_length = globals()[f"{edge_type}_min_length"]
 
         rest_length = self._get_rest_length(v1, v2, edge_type)
-        force_magnitude = spring_constant * (dist - rest_length) + 1/(dist - min_length) # adding repulsion force 
+        force_magnitude = spring_constant * (dist - rest_length)
 
 
         force_vector = np.array([force_magnitude * dx / dist, force_magnitude * dy / dist])

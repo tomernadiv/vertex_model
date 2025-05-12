@@ -37,8 +37,7 @@ def dispaly_forces_func(T):
 
 
 def run_simulation(simulation_name:str, T:tissue.Tissue, time_limit:int,
-                    save_frame_interval = 10, dt=0.001, 
-                    convergence_threshold=5e-4,
+                    save_frame_interval = 10, dt=0.0001, 
                     dispaly_forces:bool = False):
     
     # check if saving folder exists, if it is, erase it
@@ -48,12 +47,7 @@ def run_simulation(simulation_name:str, T:tissue.Tissue, time_limit:int,
         shutil.rmtree(output_dir)
     os.makedirs(output_dir)
     
-    # define convergence window - 1% of total simulation steps
-    convergence_window = int(0.01 * time_limit)
-    print(f"Convergence window: {convergence_window} steps")
-
     total_energy = []
-    all_amplitudes = []
     initial_energy = T.compute_total_energy()
     total_energy.append(initial_energy)
 
@@ -62,11 +56,6 @@ def run_simulation(simulation_name:str, T:tissue.Tissue, time_limit:int,
     output_dir = os.path.join('results', simulation_name, "frames")
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-
-    # Reset all forces to zero  
-    for node in T.graph.nodes:
-        T.graph.nodes[node]['force'] = np.array([0.0, 0.0])
-    
 
     # iterate overthe graph
     for t in range(0, time_limit):
@@ -86,7 +75,7 @@ def run_simulation(simulation_name:str, T:tissue.Tissue, time_limit:int,
             ax2.set_xlabel("Time step")
             ax2.set_ylabel("Total Energy")
             ax2.set_xlim(0, time_limit)
-            ax2.set_ylim(0, initial_energy)
+            ax2.set_ylim(0, initial_energy*5)
             ax2.grid(True)
 
             # precentage of the area
@@ -100,35 +89,17 @@ def run_simulation(simulation_name:str, T:tissue.Tissue, time_limit:int,
             plt.tight_layout()
             plt.savefig(os.path.join(output_dir, f"tissue_frame_{t}.png"))
             plt.close(fig)
-
-        
         
         # Update for next iteration
-        T.compute_all_forces(['spring'])
+        T.compute_all_forces(['spring', 'line_tension'])
         T.update_positions(dt=dt)
         T.update_heights()
         total_energy.append(T.compute_total_energy())
-    
 
         if dispaly_forces:
             dispaly_forces_func(T)
-
-
-        # check for convergence
-        if t > convergence_window:
-            recent_energy = total_energy[-convergence_window:]
-            energy_diff = np.max(recent_energy) - np.min(recent_energy)
-            print('Energy difference:', energy_diff)
-            all_amplitudes.append(energy_diff)
-            temp_total_area = T.compute_total_area()
-            area_perc = (temp_total_area/initial_total_area) * 100
-            print('Area Percentage:', area_perc)
-            if energy_diff < convergence_threshold:
-                print(f"Converged at time step {t}")
-                break
-        
     
-    return total_energy, all_amplitudes
+    return total_energy
 
 
 def replay_simulation(simulation_name: str, fps: int = 2):
@@ -159,7 +130,6 @@ def replay_simulation(simulation_name: str, fps: int = 2):
     output_file = os.path.join('results', simulation_name, "simulation.mp4")
     ani.save(output_file, writer='ffmpeg', fps=fps)
     plt.close(fig)
-
 
 
 def plot_energy_graph(simulation_name, total_energy, save_graph:bool = False):
@@ -195,13 +165,12 @@ def simulation(dt, tissue_size, save_frame_interval, time_limit):
     results_dir = os.path.join('results', simulation_name)
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
-    sys.stdout = open(os.path.join(results_dir, "log.txt"), "w")
+    # sys.stdout = open(os.path.join(results_dir, "log.txt"), "w")
     
     # run
     print(f"Starting Simulation for {time_limit} intervals:")
     print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
-    frames_dir = os.path.join('results', simulation_name, "frames")
-    total_energy, all_amplitudes = run_simulation(simulation_name=simulation_name, T=T, time_limit=time_limit, save_frame_interval = save_frame_interval, dt=dt)
+    total_energy, all_amplitudes, all_area_percs = run_simulation(simulation_name=simulation_name, T=T, time_limit=time_limit, save_frame_interval = save_frame_interval, dt=dt)
     print("\nFinished Simulation Succesfully.")
     print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
     
@@ -209,7 +178,8 @@ def simulation(dt, tissue_size, save_frame_interval, time_limit):
     # save plots
     replay_simulation(simulation_name=simulation_name)
     plot_energy_graph(simulation_name=simulation_name, total_energy=total_energy, save_graph=True)
-    return total_energy, all_amplitudes
+    plt.close()
+    return total_energy, all_amplitudes, all_area_percs
 
 
 
@@ -218,26 +188,35 @@ def simulation(dt, tissue_size, save_frame_interval, time_limit):
 
 
 def convergence_plots():
-    dts = [i for i in range(1,8)]
-    max_time_limit = 10**7
+    dts = [i for i in range(6,7)]
+    max_time_limit = 10**6
     time_limits = [min(int(10**(i+2)),max_time_limit) for i in range(1,len(dts)+1)]
     tissue_size = 10
-    results = {'amps': {dt: [] for dt in dts},
-               'energy': {dt: [] for dt in dts}}
+    results = {'amps': {},
+               'energy': {}, 
+               'area': {}}
+    
 
-    # iterate on all dt values
-    for i in range(1, len(dts)+1):
+    print("Simulation Iterations:")
+    for i in range(len(dts)):
         dt = 10 ** -dts[i]
         time_limit = time_limits[i]
+        print(f"dt: {dt}, time_limit: {time_limit}")
+
+    # iterate on all dt values
+    for i in range(len(dts)):
+        dt = 10 ** -dts[i]
+        time_limit = 10**6
         save_frame_interval = int(time_limit // 100) # save 100 frames
     
         # run simulation
-        energy_per_frame, all_amplitdes = simulation(dt, tissue_size, save_frame_interval, time_limit)
-        results['amps'][i] = all_amplitdes
-        results['energy'][i] = energy_per_frame
+        energy_per_frame, all_amplitdes, all_area_percs = simulation(dt, tissue_size, save_frame_interval, time_limit)
+        results['amps'][i+1] = all_amplitdes
+        results['energy'][i+1] = energy_per_frame
+        results['area'][i+1] = all_area_percs
 
     # save the results dict using pickle
-    with open('results.pkl', 'wb') as f:
+    with open('results2.pkl', 'wb') as f:
         pickle.dump(results, f)
 
     # plot average convergence amplitude as function of dt
@@ -252,8 +231,13 @@ def convergence_plots():
     ax.set_ylabel("Amplitude")
     ax.set_title("Average (and STD) of Energy Amplitude as Function of dt")
     ax.grid(True)
-    plt.savefig('amplitude_plot.png')
+    plt.savefig('amplitude_plot2.png')
 
 
 if __name__ == "__main__":
-    convergence_plots()
+    simulation_name='dt=0.0001_line_tension=True_2'
+    T = tissue.Tissue(cell_radius=cell_radius, num_cols=20, num_rows=20, n_init_func="all_neurons", num_out_layers=5)
+    total_energy = run_simulation(simulation_name=simulation_name, time_limit=5000, T=T, dt=0.0001, save_frame_interval=100)
+    replay_simulation(simulation_name=simulation_name)
+    plot_energy_graph(simulation_name=simulation_name, total_energy=total_energy, save_graph=True)
+    np.save(os.path.join('results', simulation_name, "energy.npy"), total_energy)
