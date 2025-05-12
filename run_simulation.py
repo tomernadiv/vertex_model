@@ -36,55 +36,68 @@ def dispaly_forces_func(T):
 
 
 
-def run_simulation(simulation_name:str, T:tissue.Tissue, time_limit:int,
+def run_simulation(T:tissue.Tissue, time_limit:int, output_dir, 
                     save_frame_interval = 10, dt=0.0001, 
                     dispaly_forces:bool = False):
-    
-    # check if saving folder exists, if it is, erase it
-    output_dir = os.path.join('results', simulation_name)
-    if os.path.exists(output_dir):
-        import shutil
-        shutil.rmtree(output_dir)
-    os.makedirs(output_dir)
+
     
     total_energy = []
+    all_area_perc = []
+
+    #init energy
     initial_energy = T.compute_total_energy()
     total_energy.append(initial_energy)
 
-
+    #init area
     initial_total_area = T.compute_total_area()
-    output_dir = os.path.join('results', simulation_name, "frames")
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+    all_area_perc.append(100)
+
+    # create outdir
+    output_dir = os.path.join(output_dir, "frames")
+    os.makedirs(output_dir, exist_ok=True)
 
     # iterate overthe graph
     for t in range(0, time_limit):
         print(f"\n---------------------Time {t}---------------------")
 
-
         if t % save_frame_interval == 0:
 
             # Save the tisuue frame
-            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))  # Side-by-side axes
-            ax1.set_title(f"Timestamp: {t}")
-            T.plot_tissue(ax=ax1) 
+            fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(18, 6))  # Side-by-side axes
+            ax2.set_title(f"Timestamp: {t}")
+            T.plot_tissue(ax=ax2, legend=True) 
 
             # Energy plot
-            ax2.plot(range(t + 1), total_energy, color='tab:red')
-            ax2.set_title("Total Energy Over Time")
-            ax2.set_xlabel("Time step")
-            ax2.set_ylabel("Total Energy")
-            ax2.set_xlim(0, time_limit)
-            ax2.set_ylim(0, initial_energy*5)
-            ax2.grid(True)
+            ax1.plot(range(t + 1), total_energy, color='tab:red')
+            ax1.set_title("Total Energy Over Time")
+            ax1.set_xlabel("Time step")
+            ax1.set_ylabel("Total Energy")
+            ax1.set_xlim(0, time_limit)
+            ax1.set_ylim(0, initial_energy*1.5)
+            ax1.grid(True)
+
+            # Area plot
+            ax3.plot(range(t + 1), all_area_perc, color='tab:blue')
+            ax3.set_title("Area Percentage Over Time")
+            ax3.set_xlabel("Time step")
+            ax3.set_ylabel("% Area")
+            ax3.set_xlim(0, time_limit)
+            ax3.set_ylim(0, 150)
+            ax3.grid(True)
+
+            # Add text
+
+            # total energy
+            ax2.text(0.0, 0.025, f"Energy: {total_energy[-1]:.3f}%", 
+                    verticalalignment='bottom', horizontalalignment='left',
+                    transform=ax2.transAxes,
+                    fontsize=15, bbox=dict(facecolor='red', alpha=0.5, boxstyle='round'))
 
             # precentage of the area
-            temp_total_area = T.compute_total_area()
-            area_perc = (temp_total_area/initial_total_area) * 100
-            ax1.text(0.95, 0.025, f"Area: {area_perc:.1f}%", 
-                    verticalalignment='bottom', horizontalalignment='right',
-                    transform=ax1.transAxes,
-                    fontsize=15, bbox=dict(facecolor='white', alpha=0.8, boxstyle='round'))
+            ax2.text(0.85, 0.025, f"Area: {all_area_perc[-1]:.3f}%", 
+                    verticalalignment='bottom', horizontalalignment='left',
+                    transform=ax2.transAxes,
+                    fontsize=15, bbox=dict(facecolor='blue', alpha=0.5, boxstyle='round'))
 
             plt.tight_layout()
             plt.savefig(os.path.join(output_dir, f"tissue_frame_{t}.png"))
@@ -94,7 +107,11 @@ def run_simulation(simulation_name:str, T:tissue.Tissue, time_limit:int,
         T.compute_all_forces(['spring'])
         T.update_positions(dt=dt)
         T.update_heights()
+
         total_energy.append(T.compute_total_energy())
+        temp_total_area = T.compute_total_area()
+        area_perc = (temp_total_area/initial_total_area) * 100
+        all_area_perc.append(area_perc)
 
         if dispaly_forces:
             dispaly_forces_func(T)
@@ -102,8 +119,8 @@ def run_simulation(simulation_name:str, T:tissue.Tissue, time_limit:int,
     return total_energy
 
 
-def replay_simulation(simulation_name: str, fps: int = 2):
-    frames_dir = os.path.join('results', simulation_name, "frames")
+def replay_simulation(frames_dir, simulation_name: str, fps: int = 2):
+
     if not os.path.exists(frames_dir):
         raise FileNotFoundError(f"Could not find frames directory at {frames_dir}")
     
@@ -128,6 +145,7 @@ def replay_simulation(simulation_name: str, fps: int = 2):
     )
 
     output_file = os.path.join('results', simulation_name, "simulation.mp4")
+    plt.tight_layout()
     ani.save(output_file, writer='ffmpeg', fps=fps)
     plt.close(fig)
 
@@ -145,45 +163,6 @@ def plot_energy_graph(simulation_name, total_energy, save_graph:bool = False):
         plt.savefig(output_path)
     else:
         plt.show()
-
-
-def simulation(dt, tissue_size, save_frame_interval, time_limit):
-    
-    simulation_name = f'test_dt={dt}'
-
-    # sanity check orints
-    print("Simulation Parameters:")
-    print(f"dt: {dt}")
-    print(f"tissue_size: {tissue_size}")
-    print(f"time_limit: {time_limit}")
-    print(f"save_frame_interval: {save_frame_interval}")
-
-    # initialize tissue
-    T = tissue.Tissue(cell_radius=cell_radius, num_cols=tissue_size, num_rows=tissue_size, n_init_func="all_neurons", num_out_layers=2)
-
-    # create rsults directory
-    results_dir = os.path.join('results', simulation_name)
-    if not os.path.exists(results_dir):
-        os.makedirs(results_dir)
-    # sys.stdout = open(os.path.join(results_dir, "log.txt"), "w")
-    
-    # run
-    print(f"Starting Simulation for {time_limit} intervals:")
-    print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
-    total_energy, all_amplitudes, all_area_percs = run_simulation(simulation_name=simulation_name, T=T, time_limit=time_limit, save_frame_interval = save_frame_interval, dt=dt)
-    print("\nFinished Simulation Succesfully.")
-    print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
-    
-    
-    # save plots
-    replay_simulation(simulation_name=simulation_name)
-    plot_energy_graph(simulation_name=simulation_name, total_energy=total_energy, save_graph=True)
-    plt.close()
-    return total_energy, all_amplitudes, all_area_percs
-
-
-
-
 
 
 
@@ -234,10 +213,57 @@ def convergence_plots():
     plt.savefig('amplitude_plot2.png')
 
 
-if __name__ == "__main__":
-    simulation_name='one_hex'
-    T = tissue.Tissue(cell_radius=cell_radius, num_cols=1, num_rows=1, n_init_func="all_neurons", num_out_layers=5)
-    total_energy = run_simulation(simulation_name=simulation_name, time_limit=5000, T=T, dt=0.000001, save_frame_interval=100)
-    replay_simulation(simulation_name=simulation_name)
+
+
+def simulation(tissue_size, time_limit, save_frame_interval, dt, num_out_layers, n_init_func, simulation_name, pertubation = False):
+
+    # sanity check orints
+    print(f"Simulation Parameters: {simulation_name}")
+    print(f"dt: {dt}")
+    print(f"tissue_size: {tissue_size}")
+    print(f"time_limit: {time_limit}")
+    print(f"save_frame_interval: {save_frame_interval}")
+
+
+    T = tissue.Tissue(cell_radius=cell_radius, num_cols=tissue_size, num_rows=tissue_size, n_init_func=n_init_func, num_out_layers=num_out_layers)
+
+    if pertubation:
+        # add pertubation
+        add_pertubation(T)
+    
+
+    # check if saving folder exists, if it is, erase it
+    output_dir = os.path.join('results', simulation_name)
+    if os.path.exists(output_dir):
+        import shutil
+        shutil.rmtree(output_dir)
+    os.makedirs(output_dir)
+
+    # redirect stdout to log file
+    original_stdout = sys.stdout
+    sys.stdout = open(os.path.join(output_dir, "log.txt"), "w")
+
+    total_energy = run_simulation(T=T, time_limit=time_limit, output_dir=output_dir, dt=dt, save_frame_interval=save_frame_interval)
+    replay_simulation(frames_dir=os.path.join(output_dir, "frames"), simulation_name=simulation_name)
     plot_energy_graph(simulation_name=simulation_name, total_energy=total_energy, save_graph=True)
     np.save(os.path.join('results', simulation_name, "energy.npy"), total_energy)
+
+    sys.stdout = original_stdout
+    print("Done.")
+
+
+
+if __name__ == "__main__":
+    run_name='outline_pert'
+    tissue_size = 10
+    time_limit = 200
+    save_frame_interval = 10
+    dt = 0.1
+    num_out_layers = 0
+    n_init_func = "all_neurons"
+    simulation_name = f"{run_name}_size{tissue_size}_lim{time_limit}_dt{dt}_{n_init_func}_shrink{shrinking_const}"
+
+    simulation(tissue_size, time_limit, save_frame_interval, dt, num_out_layers, n_init_func, simulation_name, pertubation = True)
+
+
+    

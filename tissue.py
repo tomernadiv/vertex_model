@@ -183,7 +183,7 @@ class Tissue:
         if legend:
             neuron_patch = patches.Patch(color=cm.get_cmap(neurons_cmap)(0.5), label='Neuron')
             non_neuron_patch = patches.Patch(color=cm.get_cmap(non_neurons_cmap)(0.5), label='Non-neuron')
-            ax.legend(handles=[neuron_patch, non_neuron_patch])
+            ax.legend(handles=[neuron_patch, non_neuron_patch], loc='upper right')
 
         ax.set_aspect('equal')
         ax.axis('off')
@@ -224,24 +224,33 @@ class Tissue:
         """
         force_method = getattr(self, f"_f_{force_name}")
         return force_method(v1, v2)
+
+    def zeroing_forces(self):
+        for node in self.graph.nodes:
+            self.graph.nodes[node]['force'] = np.array([0.0,0.0] ,dtype=float)
     
     def compute_all_forces(self, forces: list):
         """
         Compute the sum of forces acting on the vertices of the graph.
         """
+        self.zeroing_forces()
 
         #  iterate over each unique edge
         for v1, v2 in self.graph.edges:
-
+            # extract forces
+            force_v1 = self.graph.nodes[v1]['force']
+            force_v2 = self.graph.nodes[v2]['force'] 
             # iterate over all forces
             for force_name in forces:
-
                 # compute force
                 force = self._compute_force(force_name, v1, v2)  
 
                 # add forces
-                self.graph.nodes[v1]['force'] += force
-                self.graph.nodes[v2]['force'] -= force
+                force_v1 += force
+                force_v2 -= force
+            
+            self.graph.nodes[v1]['force'] = force_v1
+            self.graph.nodes[v2]['force'] = force_v2
 
     def update_positions(self, dt=1):
         """
@@ -362,7 +371,7 @@ class Tissue:
             """
             if the number is close to an integer - round to the integer
             """
-            return round(val) if abs(val - round(val)) < 1e-3  else val #round(val, 3)
+            return round(val) if abs(val - round(val)) < 1e-3  else round(val, 3)
     
         p1 = np.array(self.graph.nodes[v1]['pos'])
         p2 = np.array(self.graph.nodes[v2]['pos'])
