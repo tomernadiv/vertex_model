@@ -1,7 +1,7 @@
 from globals import *
 
 class Cell:
-    def __init__(self, cell_index, nodes, height, neuron=False):
+    def __init__(self, cell_index, nodes, height, area = None, neuron=False):
         """
         Hexagonal cell with 6 nodes, a height value, and a neuron flag.
         """
@@ -11,6 +11,7 @@ class Cell:
         self.nodes = nodes
         self.height = height
         self.neuron = neuron
+        self.area = area if area is not None else cell_initial_surface_area
 
     def __repr__(self):
         return f"Cell(index={self.cell_index}, height={self.height:.2f}, neuron={self.neuron})"
@@ -38,4 +39,17 @@ class Cell:
         Updates the height of the cell.
         """
         self.height = new_height
+    
+    def get_area(self):
+        """
+        Returns the area of the cell.
+        """
+        return self.area
+    
+    def update_area(self, new_area):
+        """
+        Updates the area of the cell.
+        """
+        self.area = new_area
+
 

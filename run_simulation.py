@@ -65,7 +65,8 @@ def run_simulation(T:tissue.Tissue, time_limit:int, output_dir,
             # Save the tisuue frame
             fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(18, 6))  # Side-by-side axes
             ax2.set_title(f"Timestamp: {t}")
-            T.plot_tissue(ax=ax2, legend=True) 
+            T.compute_all_velocities()
+            T.plot_tissue(color_by = 'area', ax=ax2, legend=True)
 
             # Energy plot
             ax1.plot(range(t + 1), total_energy, color='tab:red')
@@ -163,7 +164,6 @@ def plot_energy_graph(simulation_name, total_energy, save_graph:bool = False):
         plt.savefig(output_path)
     else:
         plt.show()
-
 
 
 def convergence_plots():

@@ -63,4 +63,6 @@ boundary_min_length = 0.1
 # for plotting
 min_height = 10e-1
 max_height = 10e1
+min_area = 10e-1
+max_area = 10e1
 

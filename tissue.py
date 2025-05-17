@@ -75,9 +75,9 @@ class Tissue:
                     for node in hex_nodes:
                         self.graph.nodes[node]['neuron'] = False
 
-
+                area = None
                 # Create a Cell object and add it to the stack
-                self.cells.append(Cell(cell_index, hex_nodes, height, is_neuron))
+                self.cells.append(Cell(cell_index, hex_nodes, height, area, is_neuron))
         
         # update metadata for boundry nodes and edges 
         boundary_edges, boundary_nodes  = self._find_boundary(self.graph)
@@ -118,7 +118,7 @@ class Tissue:
 
         return boundary_edges, boundary_nodes
 
-    def plot_tissue(self, ax=None, legend=False):
+    def plot_tissue(self, color_by, ax=None, legend=False):
         # get positions
         pos = nx.get_node_attributes(self.graph, 'pos')
 
@@ -159,26 +159,21 @@ class Tissue:
             node_color=node_colors,
             ax=ax
         )
-    
 
-        # Compute global min and max height for normalization
+        #Draw velocity field
+        for node in self.graph.nodes:
+            x, y = self.graph.nodes[node]['pos']
+            vx, vy = self.graph.nodes[node]['velocity']
+            ax.quiver(x, y, vx, vy, angles='xy', scale_units='xy', scale=0.1, color='red')
 
-        log_min = np.log10(min_height)
-        log_max = np.log10(max_height)
-        norm = colors.Normalize(vmin=log_min, vmax=log_max)
-
-        for cell in self.cells:
-            node_keys = cell.get_nodes()
-            node_positions = [self.graph.nodes[key]['pos'] for key in node_keys]
-            color_map = neurons_cmap if cell.is_neuron() else non_neurons_cmap
-
-            height = cell.get_height()
-            safe_height = max(height, min_height)  # prevent log10 errors
-            log_height = np.log10(safe_height)
-
-            color = cm.get_cmap(color_map)(norm(log_height))
-            ax.fill(*zip(*node_positions), color=color, alpha=0.8)
-
+        
+        # Dynamically get cell attribute method
+        if color_by == 'height':
+            self._coloring_by_value(max_height, min_height, lambda cell: cell.get_height(), ax)
+        elif color_by == 'area':
+            self._coloring_by_value(max_area, min_area, lambda cell: cell.get_area(), ax)
+        else:
+            raise ValueError(f"Unknown color_by value: {color_by}")
 
         if legend:
             neuron_patch = patches.Patch(color=cm.get_cmap(neurons_cmap)(0.5), label='Neuron')
@@ -190,6 +185,23 @@ class Tissue:
 
         if created_fig:
             plt.show()
+
+    def _coloring_by_value(self, max_val, min_val, get_func, ax):
+        log_min = np.log10(min_val)
+        log_max = np.log10(max_val)
+        norm = colors.Normalize(vmin=log_min, vmax=log_max)
+
+        for cell in self.cells:
+            node_keys = cell.get_nodes()
+            node_positions = [self.graph.nodes[key]['pos'] for key in node_keys]
+            color_map = neurons_cmap if cell.is_neuron() else non_neurons_cmap
+
+            val = get_func(cell)  # ← this was also missing!
+            safe_val = max(val, min_val)  # prevent log10 errors
+            log_scale = np.log10(safe_val)
+
+            color = cm.get_cmap(color_map)(norm(log_scale))
+            ax.fill(*zip(*node_positions), color=color, alpha=0.8)
 
     def plot_heights_distribution(self, ax=None, bins=30, log_scale=True):
         """
@@ -216,6 +228,13 @@ class Tissue:
         plt.show()
 
 
+    def compute_all_velocities(self):
+        for node in self.graph.nodes:
+            fx, fy = np.array(self.graph.nodes[node]['force'], dtype=float)
+
+            # compute velocity
+            velocity = mu * fx, mu * fy
+            self.graph.nodes[node]['velocity'] = velocity
     
     def _compute_force(self, force_name: str, v1, v2):
         """
@@ -239,7 +258,7 @@ class Tissue:
         for v1, v2 in self.graph.edges:
             # extract forces
             force_v1 = self.graph.nodes[v1]['force']
-            force_v2 = self.graph.nodes[v2]['force'] 
+            force_v2 = self.graph.nodes[v2]['force']
             # iterate over all forces
             for force_name in forces:
                 # compute force
@@ -251,6 +270,7 @@ class Tissue:
             
             self.graph.nodes[v1]['force'] = force_v1
             self.graph.nodes[v2]['force'] = force_v2
+            
 
     def update_positions(self, dt=1):
         """
@@ -331,7 +351,8 @@ class Tissue:
         if edge_data is not None:
             edge_type = edge_data.get('edge_type')
         return edge_type
-    
+            
+
     def update_heights(self):
         """
         Update the volume of each cell based on the positions of its vertices.
@@ -346,8 +367,11 @@ class Tissue:
             x, y = zip(*node_positions)
             area = 0.5 * abs(sum(x[i]*y[(i+1)%6] - x[(i+1)%6]*y[i] for i in range(6)))
 
+            cell.update_area(area)
+
             new_height = cell_volume / area  
             cell.update_height(new_height)
+    
 
     def compute_total_area(self):
         """
