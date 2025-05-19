@@ -118,7 +118,7 @@ class Tissue:
 
         return boundary_edges, boundary_nodes
 
-    def plot_tissue(self, color_by, ax=None, legend=False):
+    def plot_tissue(self, color_by, velocity_field=False, ax=None, legend=False):
         # get positions
         pos = nx.get_node_attributes(self.graph, 'pos')
 
@@ -160,13 +160,14 @@ class Tissue:
             ax=ax
         )
 
-        #Draw velocity field
-        for node in self.graph.nodes:
-            x, y = self.graph.nodes[node]['pos']
-            vx, vy = self.graph.nodes[node]['velocity']
-            ax.quiver(x, y, vx, vy, angles='xy', scale_units='xy', scale=0.1, color='red')
+        # Draw velocity field, if requested
+        if velocity_field:
+            for node in self.graph.nodes:
+                x, y = self.graph.nodes[node]['pos']
+                vx, vy = self.graph.nodes[node]['velocity']
+                ax.quiver(x, y, vx, vy, angles='xy', scale_units='xy', color='dimgray', scale=0.15, zorder=10)
 
-        
+         
         # Dynamically get cell attribute method
         if color_by == 'height':
             self._coloring_by_value(max_height, min_height, lambda cell: cell.get_height(), ax)
@@ -182,6 +183,7 @@ class Tissue:
 
         ax.set_aspect('equal')
         ax.axis('off')
+        plt.tight_layout()
 
         if created_fig:
             plt.show()
@@ -417,9 +419,10 @@ class Tissue:
             spring_constant = globals()[f"spring_constant_{edge_type}"]
             rest_length = self._get_rest_length(v1, v2, edge_type)
 
-            # if (not (self.graph.nodes[v1]['neuron'] and self.graph.nodes[v2]['neuron'])):
-            #     #not sure if this is the contribution of line tention
-            #     total_energy += line_tension_constant * length
+            # Line tension energy: 0.5 * k * (delta_x)^2
+            if self._is_nueron_edge(v1, v2):
+                line_tension_energy = 0.5 * line_tension_constant * (dist)**2
+                total_energy += line_tension_energy
             
             # Spring energy: 0.5 * k * (l - l0)^2
             spring_energy = 0.5 * spring_constant * (dist - rest_length)**2

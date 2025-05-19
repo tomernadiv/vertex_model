@@ -38,7 +38,9 @@ def dispaly_forces_func(T):
 
 def run_simulation(T:tissue.Tissue, time_limit:int, output_dir, 
                     save_frame_interval = 10, dt=0.0001, 
-                    dispaly_forces:bool = False):
+                    dispaly_forces:bool = False,
+                    forces=['spring'],
+                    velocity_field=False):
 
     
     total_energy = []
@@ -66,7 +68,7 @@ def run_simulation(T:tissue.Tissue, time_limit:int, output_dir,
             fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(18, 6))  # Side-by-side axes
             ax2.set_title(f"Timestamp: {t}")
             T.compute_all_velocities()
-            T.plot_tissue(color_by = 'area', ax=ax2, legend=True)
+            T.plot_tissue(color_by = 'area', ax=ax2, legend=True, velocity_field=velocity_field)
 
             # Energy plot
             ax1.plot(range(t + 1), total_energy, color='tab:red')
@@ -89,23 +91,25 @@ def run_simulation(T:tissue.Tissue, time_limit:int, output_dir,
             # Add text
 
             # total energy
-            ax2.text(0.0, 0.025, f"Energy: {total_energy[-1]:.3f}%", 
+            ax2.text(0.0, 0.025, f"Energy: {total_energy[-1]:.3f}", 
                     verticalalignment='bottom', horizontalalignment='left',
                     transform=ax2.transAxes,
                     fontsize=15, bbox=dict(facecolor='red', alpha=0.5, boxstyle='round'))
+            
 
             # precentage of the area
             ax2.text(0.85, 0.025, f"Area: {all_area_perc[-1]:.3f}%", 
                     verticalalignment='bottom', horizontalalignment='left',
                     transform=ax2.transAxes,
-                    fontsize=15, bbox=dict(facecolor='blue', alpha=0.5, boxstyle='round'))
+                    fontsize=15, bbox=dict(facecolor='blue', alpha=0.5, boxstyle='round')),
+
 
             plt.tight_layout()
             plt.savefig(os.path.join(output_dir, f"tissue_frame_{t}.png"))
             plt.close(fig)
         
         # Update for next iteration
-        T.compute_all_forces(['spring'])
+        T.compute_all_forces(forces)
         T.update_positions(dt=dt)
         T.update_heights()
 
@@ -215,7 +219,7 @@ def convergence_plots():
 
 
 
-def simulation(tissue_size, time_limit, save_frame_interval, dt, num_out_layers, n_init_func, simulation_name, pertubation = False):
+def simulation(tissue_size, time_limit, save_frame_interval, dt, num_out_layers, n_init_func, simulation_name, forces, pertubation=False, velocity_field=False):
 
     # sanity check orints
     print(f"Simulation Parameters: {simulation_name}")
@@ -243,7 +247,7 @@ def simulation(tissue_size, time_limit, save_frame_interval, dt, num_out_layers,
     original_stdout = sys.stdout
     sys.stdout = open(os.path.join(output_dir, "log.txt"), "w")
 
-    total_energy = run_simulation(T=T, time_limit=time_limit, output_dir=output_dir, dt=dt, save_frame_interval=save_frame_interval)
+    total_energy = run_simulation(T=T, time_limit=time_limit, forces=forces, output_dir=output_dir, dt=dt, save_frame_interval=save_frame_interval, velocity_field=velocity_field)
     replay_simulation(frames_dir=os.path.join(output_dir, "frames"), simulation_name=simulation_name)
     plot_energy_graph(simulation_name=simulation_name, total_energy=total_energy, save_graph=True)
     np.save(os.path.join('results', simulation_name, "energy.npy"), total_energy)
@@ -254,16 +258,17 @@ def simulation(tissue_size, time_limit, save_frame_interval, dt, num_out_layers,
 
 
 if __name__ == "__main__":
-    run_name='outline_pert'
-    tissue_size = 10
-    time_limit = 200
-    save_frame_interval = 10
+    run_name='line_tension_strong_w_velocity_field'
+    forces = ['spring', 'line_tension']
+    tissue_size = 12
+    time_limit = 500
+    save_frame_interval = 5
     dt = 0.1
-    num_out_layers = 0
+    num_out_layers = 2
     n_init_func = "all_neurons"
     simulation_name = f"{run_name}_size{tissue_size}_lim{time_limit}_dt{dt}_{n_init_func}_shrink{shrinking_const}"
 
-    simulation(tissue_size, time_limit, save_frame_interval, dt, num_out_layers, n_init_func, simulation_name, pertubation = True)
+    simulation(tissue_size, time_limit, save_frame_interval, dt, num_out_layers, n_init_func, simulation_name, forces=forces, pertubation=False, velocity_field=True)
 
 
     
