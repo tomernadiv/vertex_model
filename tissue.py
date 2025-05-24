@@ -429,20 +429,47 @@ class Tissue:
             total_energy += spring_energy
         return total_energy
 
+    def calculate_velocity_profile(self, bin_length=None):
+        """
+        Calculate the velocity profile of the tissue.
+        Devide the x-axis into bins and compute the average velocity in each bin.
+        """
+        # get x coordinates and x velocities for all nodes
+        x_velocities, x_positions = [], []
+        for node in self.graph.nodes:
+            x = self.graph.nodes[node]['pos'][0]
+            vx = mu * self.graph.nodes[node]['force'][0]
+            x_velocities.append(vx)
+            x_positions.append(x)
 
-    #### for debugging cell height colors:
-    def compare_opposite_corner_heights(self):
-        top_right_index = self.num_cols - 1
-        bottom_left_index = (self.num_rows - 1) * self.num_cols
+        # sort both by x positions
+        sorted_indices = np.argsort(x_positions)
+        x_positions = np.array(x_positions)[sorted_indices]
+        x_velocities = np.array(x_velocities)[sorted_indices]
 
-        top_right_cell = self.cells[top_right_index]
-        bottom_left_cell = self.cells[bottom_left_index]
+        if bin_length is None:
+            return x_positions, x_velocities
+        
+        # create bins
+        bins = np.arange(min(x_positions), max(x_positions), bin_length)
 
-        h_top_right = top_right_cell.get_height()
-        h_bottom_left = bottom_left_cell.get_height()
+        # Assign each x_position to a bin
+        bin_indices = np.digitize(x_positions, bins) - 1
 
-        print(f"Top-right cell (index {top_right_index}) height: {h_top_right:.3f}")
-        print(f"Bottom-left cell (index {bottom_left_index}) height: {h_bottom_left:.3f}")
-        print(f"Height difference (TR - BL): {h_top_right - h_bottom_left:.3f}")
+        # Filter out-of-bound indices
+        valid = (bin_indices >= 0) & (bin_indices < len(bins) - 1)
+        bin_indices = bin_indices[valid]
+        velocities = x_velocities[valid]
 
-        return h_top_right, h_bottom_left
+        # Sum and count per bin
+        sum_per_bin = np.bincount(bin_indices, weights=velocities, minlength=len(bins)-1)
+        count_per_bin = np.bincount(bin_indices, minlength=len(bins)-1)
+
+        # Compute means, avoiding division by zero
+        bin_means = np.divide(sum_per_bin, count_per_bin, out=np.zeros_like(sum_per_bin), where=count_per_bin!=0)
+
+        # return bin centers and means
+        bin_centers = (bins[:-1] + bins[1:]) / 2
+        return bin_centers, bin_means
+
+
