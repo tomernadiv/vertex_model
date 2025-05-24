@@ -5,7 +5,7 @@ import tissue
 import pickle
 
 # plotting function
-def plot_timestamp(T: tissue, t: int, energy, area, position, velocity,
+def plot_timestamp(T: tissue, t: int, energy, area, position, velocity, time_limit,
                    output_dir=None, show_velocity_field: bool = False, show: bool = False):
     fig = plt.figure(figsize=(14, 8))
     gs = gridspec.GridSpec(2, 2, width_ratios=[2.5, 1])
@@ -29,7 +29,7 @@ def plot_timestamp(T: tissue, t: int, energy, area, position, velocity,
     ax3.set_title("Total Energy and Area % Over Time")
     ax3.set_xlabel("Time step")
     ax3.set_ylabel("Total Energy", color='tab:red')
-    ax3.set_xlim(0, len(energy))
+    ax3.set_xlim(0, time_limit)
     ax3.set_ylim(0, energy[0] * 1.5)
     ax3.tick_params(axis='y', labelcolor='tab:red')
     ax3.grid(True)
@@ -38,6 +38,7 @@ def plot_timestamp(T: tissue, t: int, energy, area, position, velocity,
     ax4.plot(range(t + 1), area, color='tab:blue')
     ax4.set_ylabel("% Area", color='tab:blue')
     ax4.set_ylim(0, 150)
+    ax4.set_xlim(0, time_limit)
     ax4.tick_params(axis='y', labelcolor='tab:blue')
 
     # Text annotations on the tissue plot
@@ -132,7 +133,8 @@ def run_simulation(T:tissue.Tissue,                  # tissue object
         if t % save_frame_interval == 0:
             plot_timestamp(T=T, t=t, energy=energies,
                            area=area_percs, position=position,
-                           velocity=velocity, output_dir=output_dir,
+                           velocity=velocity, time_limit=time_limit,
+                           output_dir=output_dir,
                            show_velocity_field=show_velocity_field)
         # Update for next iteration
         T.compute_all_forces(forces)
