@@ -2,19 +2,15 @@ from globals import *
 from cell import Cell
 from networkx.algorithms.boundary import edge_boundary
 import neuron_initiation 
+import runpy
 
 
 class Tissue:
-    def __init__(self, cell_radius, num_rows, num_cols, n_init_func = "half_tissue", num_out_layers=0):
-        self.cell_radius = cell_radius
-        self.num_rows = num_rows
-        self.num_cols = num_cols
-        self.num_cells = num_rows * num_cols
+    def __init__(self, globals_config_path, simulation_config_path, morphology_config_path):
+        self._init_simulation_properties(globals_config_path, simulation_config_path, morphology_config_path)
+        self.num_cells = self.num_rows * self.num_cols
         self.graph = nx.Graph()
         self.cells: list[Cell] = []
-        self.n_init_func = n_init_func
-        self.num_out_layers = num_out_layers
-
         self._create_grid()
 
     
@@ -29,6 +25,7 @@ class Tissue:
         # generate grid 
         for row in range(self.num_rows):
             for col in range(self.num_cols):
+                
                 # hexagon centroid coordinates
                 cx = col * dx
                 cy = row * dy
@@ -43,7 +40,7 @@ class Tissue:
                     y = cy + self.cell_radius * math.sin(angle)
                     pos = round_pos(x, y)
                     if pos not in node_cache:
-                        self.graph.add_node(pos, pos=pos, neuron=False, force=np.array([0.0, 0.0]))
+                        self.graph.add_node(pos, pos=pos, neuron=False, force=np.array([0.0, 0.0]), row=row, col=col)
                         node_cache[pos] = pos
                     hex_nodes.append(node_cache[pos])
 
@@ -65,7 +62,8 @@ class Tissue:
                 cell_index = int(row * self.num_cols + col)
                 height = cell_initial_height                # can be modified later with a smarter logic
                 
-                is_neuron = (neuron_initiation.__dict__[self.n_init_func](row, self.num_rows)) and (not neuron_initiation.outline(self.num_out_layers, row, self.num_rows, col, self.num_cols))
+                # check if nueron or not 
+                is_neuron = self._init_cell(row, col)
                 
 
                 if is_neuron:
@@ -81,7 +79,7 @@ class Tissue:
         
         # update metadata for boundry nodes and edges 
         boundary_edges, boundary_nodes  = self._find_boundary(self.graph)
-        #boundary_edges, boundary_nodes = [],[]
+
         #edges
         edge_attr = {edge: 'boundary' for edge in boundary_edges}
         nx.set_edge_attributes(self.graph, edge_attr, name='edge_type')
@@ -89,6 +87,34 @@ class Tissue:
         boundary_attr = {node: True for node in boundary_nodes}
         nx.set_node_attributes(self.graph, False, 'boundary')  # Set default to False
         nx.set_node_attributes(self.graph, boundary_attr, 'boundary')  # Update boundary nodes to True
+
+
+    def _init_simulation_properties(self, globals_config_path, simulation_config_path, morph_globals_path):
+        # Load constants
+        global_consts = runpy.run_path(globals_config_path)
+        morph_consts = runpy.run_path(morph_globals_path)
+
+        combined_namespace = {**global_consts, **morph_consts}
+
+        # Read simulation config source code
+        with open(simulation_config_path, 'r') as f:
+            sim_code = f.read()
+
+        # Execute simulation config in the combined namespace
+        exec(sim_code, combined_namespace)
+
+        # Assign all variables as self attributes
+        for key, value in combined_namespace.items():
+            if not key.startswith("__"):  # skip built-ins
+                setattr(self, key, value)
+
+
+    def _init_cell(self, row, col):
+        # init the morphology of the tissue
+        is_neuron = (self.neurons_out and 
+                     neuron_initiation.outline(self.num_layers ,self.num_frames, row, self.num_rows, col, self.num_cols))
+        
+        return is_neuron
     
     def _find_boundary(self, G):
         """Find the boundary edges of a hexagonal graph based on 'marginal' edges."""
@@ -235,7 +261,7 @@ class Tissue:
             fx, fy = np.array(self.graph.nodes[node]['force'], dtype=float)
 
             # compute velocity
-            velocity = mu * fx, mu * fy
+            velocity = self.mu * fx, self.mu * fy
             self.graph.nodes[node]['velocity'] = velocity
     
     def _compute_force(self, force_name: str, v1, v2):
@@ -264,11 +290,11 @@ class Tissue:
             # iterate over all forces
             for force_name in forces:
                 # compute force
-                force = self._compute_force(force_name, v1, v2)  
+                temp_force_v1, temp_force_v2 = self._compute_force(force_name, v1, v2)  
 
                 # add forces
-                force_v1 += force
-                force_v2 -= force
+                force_v1 += temp_force_v1
+                force_v2 += temp_force_v2
             
             self.graph.nodes[v1]['force'] = force_v1
             self.graph.nodes[v2]['force'] = force_v2
@@ -287,7 +313,7 @@ class Tissue:
             force = np.array(self.graph.nodes[node]['force'], dtype=float)
 
             # compute velocity
-            velocity = mu * force
+            velocity = self.mu * force
 
             # update position
             new_pos = pos + velocity * dt
@@ -305,21 +331,21 @@ class Tissue:
         
         # get spring constant accorfing to edge type
         edge_type = self._get_edge_type(v1, v2)
-        spring_constant = globals()[f"spring_constant_{edge_type}"]
-        min_length = globals()[f"{edge_type}_min_length"]
+        spring_constant = getattr(self,f"spring_constant_{edge_type}")
+        min_length = getattr(self,f"{edge_type}_min_length")
 
         rest_length = self._get_rest_length(v1, v2, edge_type)
         force_magnitude = spring_constant * (dist - rest_length)
 
 
         force_vector = np.array([force_magnitude * dx / dist, force_magnitude * dy / dist])
-        return force_vector
+        return force_vector, (force_vector *(-1))
 
     def _get_rest_length(self, v1, v2, edge_type):
         if self._is_nueron_edge(v1, v2):
-            rest_length = globals()[f"{edge_type}_rest_length"]
+            rest_length = getattr(self,f"{edge_type}_rest_length")
         else:
-            rest_length = globals()[f"non_neuron_{edge_type}_rest_length"]
+            rest_length = getattr(self,f"non_neuron_{edge_type}_rest_length")
         return rest_length
     
     def _f_line_tension(self, v1, v2):
@@ -341,10 +367,51 @@ class Tissue:
             unit_vector = np.array([dx / dist, dy / dist])
             force_vector = line_tension_constant * unit_vector
 
-            return force_vector
+            return force_vector, (force_vector *(-1))
         else:
-            return np.array([0.0, 0.0])
+            return np.array([0.0, 0.0]), np.array([0.0, 0.0])
         
+    def _f_push_out(self, v1, v2):
+        """
+        Calculate the outward force, if:
+            - v1 and v2 are not neurons
+            - v1 and v2 are on the inner border of a frame
+
+        returns the normalized force oposite to the direction to the center of the frame
+        """
+        edge_type = self._get_edge_type(v1, v2)
+        is_neuron = self._is_nueron_edge(v1, v2)
+
+        if (not is_neuron) and (edge_type=="marginal"):
+            if self.graph.nodes[v1]['col'] == 2 and self.graph.nodes[v1]['row'] == 2:
+                print("yey")
+            v1_is_border = neuron_initiation.inner_outline(self.num_layers,self.num_frames,self.graph.nodes[v1]['row'],self.num_rows,self.graph.nodes[v1]['col'],self.num_cols,self.inner_border_layers)
+            v2_is_border = neuron_initiation.inner_outline(self.num_layers,self.num_frames,self.graph.nodes[v2]['row'],self.num_rows,self.graph.nodes[v2]['col'],self.num_cols,self.inner_border_layers)
+
+            if v1_is_border and v2_is_border: 
+                return self._compute_outwards_force(v1), self._compute_outwards_force(v2)
+                            
+
+        return np.array([0.0, 0.0]), np.array([0.0, 0.0])
+    
+    def _compute_outwards_force(self,v1):
+        vx, vy = self.graph.nodes[v1]['pos']
+        col = self.graph.nodes[v1]['col']
+        frame_start, frame_end = neuron_initiation.get_frame_borders(col, self.num_cols, self.num_frames)
+        # Outward vector from frame center to vertex
+        cx = (frame_start + frame_end) / 2
+        cy = self.num_rows / 2  # center vertically
+        dx = vx - cx
+        dy = vy - cy
+        norm = (dx ** 2 + dy ** 2) ** 0.5
+        if norm == 0:  # Handle edge case where vertex is exactly at center
+            return np.array([0.0, 0.0])
+    
+        strength = self.push_out_force_strength
+        # Return normalized force vector
+        return np.array([strength * dx / norm, strength * dy / norm])
+    
+
     def _is_nueron_edge(self, v1, v2):
         return (self.graph.nodes[v1]['neuron'] and self.graph.nodes[v2]['neuron'])
  
@@ -416,7 +483,7 @@ class Tissue:
             dx,dy,dist = self._get_distances(v1,v2)
             
             edge_type = self._get_edge_type(v1, v2)
-            spring_constant = globals()[f"spring_constant_{edge_type}"]
+            spring_constant = getattr(self,f"spring_constant_{edge_type}")
             rest_length = self._get_rest_length(v1, v2, edge_type)
 
             # Line tension energy: 0.5 * k * (delta_x)^2
@@ -438,7 +505,7 @@ class Tissue:
         x_velocities, x_positions = [], []
         for node in self.graph.nodes:
             x = self.graph.nodes[node]['pos'][0]
-            vx = mu * self.graph.nodes[node]['force'][0]
+            vx = self.mu * self.graph.nodes[node]['force'][0]
             x_velocities.append(vx)
             x_positions.append(x)
 

@@ -257,11 +257,11 @@ def simulation(time_limit, save_frame_interval, dt, globals_config_path, simulat
 
 
 if __name__ == "__main__":
-    forces = ['spring', 'line_tension', 'push_out']
-    time_limit = 20
+    forces = ['spring', 'line_tension']
+    time_limit = 100
     save_frame_interval = 5
     dt = 0.1
-    simulation_number = 2
+    simulation_number = 1
     simulation_name = f"simulation_{simulation_number}"
     globals_config_path = "configs/globals.py"
     simulation_config_path = f"configs/{simulation_name}.py"
