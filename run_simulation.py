@@ -1,8 +1,62 @@
 
 from configs.run_config import *
 import tissue
-import pickle
 
+# plotting function
+def plot_timestamp(T: tissue, t: int, energy, area, position, velocity, time_limit,
+                   output_dir=None, show_velocity_field: bool = False, show: bool = False):
+    fig = plt.figure(figsize=(14, 8))
+    gs = gridspec.GridSpec(2, 2, width_ratios=[2.5, 1])
+
+    # Big tissue plot on the left (spans both rows)
+    ax1 = fig.add_subplot(gs[:, 0])
+    ax1.set_title(f"Timestamp: {t}")
+    T.plot_tissue(color_by='area', ax=ax1, legend=True, velocity_field=show_velocity_field)
+
+    # Velocity profile (top right)
+    ax2 = fig.add_subplot(gs[0, 1])
+    ax2.set_title("Velocity Profile")
+    ax2.set_xlabel("X Position")
+    ax2.set_ylabel("X Velocity")
+    sns.scatterplot(x=position, y=velocity, ax=ax2, color='tab:green', s=10)
+    sns.lineplot(x=position, y=velocity, ax=ax2, color='tab:green', linewidth=0.1)
+
+    # Energy + Area % over time (bottom right)
+    ax3 = fig.add_subplot(gs[1, 1])
+    ax3.plot(range(t + 1), energy, color='tab:red')
+    ax3.set_title("Total Energy and Area % Over Time")
+    ax3.set_xlabel("Time step")
+    ax3.set_ylabel("Total Energy", color='tab:red')
+    ax3.set_xlim(0, time_limit)
+    ax3.set_ylim(0, energy[0] * 1.5)
+    ax3.tick_params(axis='y', labelcolor='tab:red')
+    ax3.grid(True)
+
+    ax4 = ax3.twinx()
+    ax4.plot(range(t + 1), area, color='tab:blue')
+    ax4.set_ylabel("% Area", color='tab:blue')
+    ax4.set_ylim(0, 150)
+    ax4.set_xlim(0, time_limit)
+    ax4.tick_params(axis='y', labelcolor='tab:blue')
+
+    # Text annotations on the tissue plot
+    ax1.text(0.02, 0.025, f"Energy: {energy[-1]:.3f}",
+             transform=ax1.transAxes,
+             fontsize=14, bbox=dict(facecolor='red', alpha=0.5, boxstyle='round'))
+
+    ax1.text(0.75, 0.025, f"Area: {area[-1]:.3f}%",
+             transform=ax1.transAxes,
+             fontsize=14, bbox=dict(facecolor='blue', alpha=0.5, boxstyle='round'))
+
+    plt.tight_layout()
+
+    if show:
+        plt.show()
+
+    if output_dir:
+        fig.savefig(os.path.join(output_dir, f"tissue_frame_{t}.png"))
+
+    plt.close(fig)
 
 
 # add some pertubations to check plotting
@@ -34,25 +88,29 @@ def dispaly_forces_func(T):
                 cell_type += "boundary"
             print(f"Node {i}: {cell_type}  {node} {T.graph.nodes[node]['force']}")
 
-
-
-def run_simulation(T:tissue.Tissue, time_limit:int, output_dir, 
-                    save_frame_interval = 10, dt=0.0001, 
-                    dispaly_forces:bool = False,
-                    forces=['spring'],
-                    velocity_field=False):
+def run_simulation(T:tissue.Tissue,                  # tissue object
+                   time_limit:int,                   # number of timestamps
+                   dt=0.1,                           # time step  
+                   output_dir='',                    # output directory for saving frames
+                   save_frame_interval = 10,         # save frame every x timestamps
+                   forces=['spring'],                # forces to apply, e.g. ['spring', 'line_tension']
+                   velocity_profile_position_bin=1,  # bin size for velocity profile
+                   show_velocity_field=False):       # whether to show velocity field in the tisssue plot
 
     
-    total_energy = []
-    all_area_perc = []
+    # init empty stacks
+    energies = []
+    area_percs = []
+    velocity_profiles = []
+
 
     #init energy
     initial_energy = T.compute_total_energy()
-    total_energy.append(initial_energy)
+    energies.append(initial_energy)
 
     #init area
     initial_total_area = T.compute_total_area()
-    all_area_perc.append(100)
+    area_percs.append(100)
 
     # create outdir
     output_dir = os.path.join(output_dir, "frames")
@@ -62,67 +120,42 @@ def run_simulation(T:tissue.Tissue, time_limit:int, output_dir,
     for t in range(0, time_limit):
         print(f"\n---------------------Time {t}---------------------")
 
+        # compute velocities
+        T.compute_all_velocities()
+
+        # compute velocity profile
+        position, velocity = T.calculate_velocity_profile(bin_length=velocity_profile_position_bin)
+        velocity_profiles.append((position, velocity))
+
+        # plot timestamp
         if t % save_frame_interval == 0:
-
-            # Save the tisuue frame
-            fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(18, 6))  # Side-by-side axes
-            ax2.set_title(f"Timestamp: {t}")
-            T.compute_all_velocities()
-            T.plot_tissue(color_by = 'area', ax=ax2, legend=True, velocity_field=velocity_field)
-
-            # Energy plot
-            ax1.plot(range(t + 1), total_energy, color='tab:red')
-            ax1.set_title("Total Energy Over Time")
-            ax1.set_xlabel("Time step")
-            ax1.set_ylabel("Total Energy")
-            ax1.set_xlim(0, time_limit)
-            ax1.set_ylim(0, initial_energy*1.5)
-            ax1.grid(True)
-
-            # Area plot
-            ax3.plot(range(t + 1), all_area_perc, color='tab:blue')
-            ax3.set_title("Area Percentage Over Time")
-            ax3.set_xlabel("Time step")
-            ax3.set_ylabel("% Area")
-            ax3.set_xlim(0, time_limit)
-            ax3.set_ylim(0, 150)
-            ax3.grid(True)
-
-            # Add text
-
-            # total energy
-            ax2.text(0.0, 0.025, f"Energy: {total_energy[-1]:.3f}", 
-                    verticalalignment='bottom', horizontalalignment='left',
-                    transform=ax2.transAxes,
-                    fontsize=15, bbox=dict(facecolor='red', alpha=0.5, boxstyle='round'))
-            
-
-            # precentage of the area
-            ax2.text(0.85, 0.025, f"Area: {all_area_perc[-1]:.3f}%", 
-                    verticalalignment='bottom', horizontalalignment='left',
-                    transform=ax2.transAxes,
-                    fontsize=15, bbox=dict(facecolor='blue', alpha=0.5, boxstyle='round')),
-
-
-            plt.tight_layout()
-            plt.savefig(os.path.join(output_dir, f"tissue_frame_{t}.png"))
-            plt.close(fig)
-        
+            plot_timestamp(T=T, t=t, energy=energies,
+                           area=area_percs, position=position,
+                           velocity=velocity, time_limit=time_limit,
+                           output_dir=output_dir,
+                           show_velocity_field=show_velocity_field)
         # Update for next iteration
         T.compute_all_forces(forces)
         T.update_positions(dt=dt)
         T.update_heights()
 
-        total_energy.append(T.compute_total_energy())
-        temp_total_area = T.compute_total_area()
-        area_perc = (temp_total_area/initial_total_area) * 100
-        all_area_perc.append(area_perc)
+        # add to stacjs
+        energies.append(T.compute_total_energy())
+        area_percs.append((T.compute_total_area()/initial_total_area) * 100)
 
-        if dispaly_forces:
-            dispaly_forces_func(T)
+    # stack up results
+    positions = [np.array(vp[0]) for vp in velocity_profiles]
+    velocities = [np.array(vp[1]) for vp in velocity_profiles]
+    res = {'energy': np.array(energies),
+           'areaL': np.array(area_percs),
+           'velocity_profile_position': positions,
+           'velocity_profile_velocity': velocities}
     
-    return total_energy
-
+    # save results
+    with open(os.path.join(output_dir, "..", "results.pkl"), 'wb') as f:
+        pickle.dump(res, f)
+    
+    return res
 
 def replay_simulation(frames_dir, simulation_name: str, fps: int = 2):
 
@@ -153,7 +186,6 @@ def replay_simulation(frames_dir, simulation_name: str, fps: int = 2):
     plt.tight_layout()
     ani.save(output_file, writer='ffmpeg', fps=fps)
     plt.close(fig)
-
 
 def plot_energy_graph(simulation_name, total_energy, save_graph:bool = False):
     
@@ -219,7 +251,7 @@ def convergence_plots():
 
 
 
-def simulation(time_limit, save_frame_interval, dt, globals_config_path, simulation_config_path, morphology_config_path, simulation_name, forces, pertubation=False, velocity_field=False):
+def simulation(time_limit, save_frame_interval, dt, globals_config_path, simulation_config_path, morphology_config_path, simulation_name, forces, pertubation=False, show_velocity_field=False):
 
     # sanity check orints
     print(f"Simulation Parameters: {simulation_name}")
@@ -230,11 +262,11 @@ def simulation(time_limit, save_frame_interval, dt, globals_config_path, simulat
 
     T = tissue.Tissue(globals_config_path = globals_config_path, simulation_config_path = simulation_config_path, morphology_config_path = morphology_config_path)
 
+
+    # add pertubations if needed
     if pertubation:
-        # add pertubation
         add_pertubation(T)
     
-
     # check if saving folder exists, if it is, erase it
     output_dir = os.path.join('results', simulation_name)
     if os.path.exists(output_dir):
@@ -246,11 +278,16 @@ def simulation(time_limit, save_frame_interval, dt, globals_config_path, simulat
     original_stdout = sys.stdout
     sys.stdout = open(os.path.join(output_dir, "log.txt"), "w")
 
-    total_energy = run_simulation(T=T, time_limit=time_limit, forces=forces, output_dir=output_dir, dt=dt, save_frame_interval=save_frame_interval, velocity_field=velocity_field)
+    # run simulation
+    result_dict = run_simulation(T=T, time_limit=time_limit, forces=forces,velocity_profile_position_bin=velocity_profile_position_bin, output_dir=output_dir, dt=dt, save_frame_interval=save_frame_interval, show_velocity_field=show_velocity_field)
+    
+    # create video
     replay_simulation(frames_dir=os.path.join(output_dir, "frames"), simulation_name=simulation_name)
-    plot_energy_graph(simulation_name=simulation_name, total_energy=total_energy, save_graph=True)
-    np.save(os.path.join('results', simulation_name, "energy.npy"), total_energy)
-
+    
+    # plot energy plot
+    plot_energy_graph(simulation_name=simulation_name, total_energy=result_dict['energy'], save_graph=True)
+    
+    # redirect stdout back to console
     sys.stdout = original_stdout
     print("Done.")
 
@@ -261,13 +298,15 @@ if __name__ == "__main__":
     time_limit = 20
     save_frame_interval = 5
     dt = 0.1
-    simulation_number = 2
+    velocity_profile_position_bin = 0.5
+    simulation_number = 1
     simulation_name = f"simulation_{simulation_number}"
     globals_config_path = "configs/globals.py"
     simulation_config_path = f"configs/{simulation_name}.py"
     morphology_config_path = "configs/morphology_config.py"
 
-    simulation(time_limit, save_frame_interval, dt, globals_config_path, simulation_config_path, morphology_config_path, simulation_name, forces=forces, pertubation=False, velocity_field=True)
+    simulation(time_limit, save_frame_interval, dt, globals_config_path, simulation_config_path, morphology_config_path, simulation_name, forces=forces, pertubation=False, show_velocity_field=True)
+
 
 
     

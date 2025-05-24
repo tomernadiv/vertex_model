@@ -13,6 +13,9 @@ import matplotlib.cm as cm
 import matplotlib.animation as animation
 from matplotlib import colors
 import matplotlib.image as mpimg
+import matplotlib.gridspec as gridspec
+import tissue
+import pickle
 
 # set seed
 seed = 42
