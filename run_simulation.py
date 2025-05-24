@@ -20,8 +20,8 @@ def plot_timestamp(T: tissue, t: int, energy, area, position, velocity, time_lim
     ax2.set_title("Velocity Profile")
     ax2.set_xlabel("X Position")
     ax2.set_ylabel("X Velocity")
-    sns.scatterplot(x=position, y=velocity, ax=ax2, color='tab:green', s=3)
-    sns.lineplot(x=position, y=velocity, ax=ax2, color='tab:green', linewidth=0.5)
+    sns.scatterplot(x=position, y=velocity, ax=ax2, color='tab:green', s=10)
+    sns.lineplot(x=position, y=velocity, ax=ax2, color='tab:green', linewidth=0.1)
 
     # Energy + Area % over time (bottom right)
     ax3 = fig.add_subplot(gs[1, 1])
@@ -154,7 +154,7 @@ def run_simulation(T:tissue.Tissue,                  # tissue object
            'velocity_profile_velocity': velocities}
     
     # save results
-    with open(os.path.join(output_dir, "results.pkl"), 'wb') as f:
+    with open(os.path.join(output_dir, "..", "results.pkl"), 'wb') as f:
         pickle.dump(res, f)
     
     return res
@@ -242,7 +242,7 @@ def simulation(tissue_size,
     sys.stdout = open(os.path.join(output_dir, "log.txt"), "w")
 
     # run simulation
-    result_dict = run_simulation(T=T, time_limit=time_limit, forces=forces, output_dir=output_dir, dt=dt, save_frame_interval=save_frame_interval, show_velocity_field=show_velocity_field)
+    result_dict = run_simulation(T=T, time_limit=time_limit, forces=forces,velocity_profile_position_bin=velocity_profile_position_bin, output_dir=output_dir, dt=dt, save_frame_interval=save_frame_interval, show_velocity_field=show_velocity_field)
     
     # create video
     replay_simulation(frames_dir=os.path.join(output_dir, "frames"), simulation_name=simulation_name)
@@ -264,7 +264,7 @@ if __name__ == "__main__":
     save_frame_interval = 5
     dt = 0.1
     num_out_layers = 2
-    velocity_profile_position_bin = None
+    velocity_profile_position_bin = 0.5
     n_init_func = "all_neurons"
     simulation_name = f"{run_name}_size{tissue_size}_lim{time_limit}_dt{dt}_{n_init_func}_shrink{shrinking_const}"
 
