@@ -1,6 +1,6 @@
 # folders
 /results/
-/frames_dir/
+/frames/
 /output_dir/
 
 
@@ -181,5 +181,4 @@ cython_debug/
 
 
 *.png
-*/simulation*
 log.txt
