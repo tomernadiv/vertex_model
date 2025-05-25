@@ -306,7 +306,7 @@ if __name__ == "__main__":
     save_frame_interval = 5
     dt = 0.1
     velocity_profile_position_bin = 0.5
-    simulation_number = 1
+    simulation_number = 2
     simulation_name = f"simulation_{simulation_number}"
     forces = simulation_to_forces[simulation_name]
     globals_config_path = "configs/globals.py"
