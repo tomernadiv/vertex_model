@@ -251,7 +251,7 @@ def convergence_plots():
 
 
 
-def simulation(time_limit, save_frame_interval, dt, globals_config_path, simulation_config_path, morphology_config_path, simulation_name, forces, pertubation=False, show_velocity_field=False):
+def simulation(time_limit, save_frame_interval, dt, globals_config_path, simulation_config_path, morphology_config_path, simulation_name, forces, pertubation=False, show_velocity_field=False, rm_frames = True):
 
     # sanity check orints
     print(f"Simulation Parameters: {simulation_name}")
@@ -284,8 +284,11 @@ def simulation(time_limit, save_frame_interval, dt, globals_config_path, simulat
     # create video
     replay_simulation(frames_dir=os.path.join(output_dir, "frames"), simulation_name=simulation_name)
     
-    # plot energy plot
-    plot_energy_graph(simulation_name=simulation_name, total_energy=result_dict['energy'], save_graph=True)
+    # move the last figure create to simulation dir and remove frame dir if specified
+    shutil.copyfile(os.path.join(output_dir, "frames", f"tissue_frame_{(time_limit-save_frame_interval)}.png"), os.path.join(output_dir,"last_frame.png"))
+
+    if rm_frames:
+        shutil.rmtree(os.path.join(output_dir, "frames"))
     
     # redirect stdout back to console
     sys.stdout = original_stdout
@@ -294,18 +297,23 @@ def simulation(time_limit, save_frame_interval, dt, globals_config_path, simulat
 
 
 if __name__ == "__main__":
-    forces = ['spring', 'line_tension']
-    time_limit = 20
+    simulation_to_forces = {
+        "simulation_1": ['spring', 'line_tension'],
+        "simulation_2": ['spring', 'line_tension', 'push_out'],
+        "simulation_3": ['spring', 'line_tension']
+    }
+    time_limit = 50
     save_frame_interval = 5
     dt = 0.1
     velocity_profile_position_bin = 0.5
-    simulation_number = 3
+    simulation_number = 1
     simulation_name = f"simulation_{simulation_number}"
+    forces = simulation_to_forces[simulation_name]
     globals_config_path = "configs/globals.py"
     simulation_config_path = f"configs/{simulation_name}.py"
     morphology_config_path = "configs/morphology_config.py"
 
-    simulation(time_limit, save_frame_interval, dt, globals_config_path, simulation_config_path, morphology_config_path, simulation_name, forces=forces, pertubation=False, show_velocity_field=True)
+    simulation(time_limit, save_frame_interval, dt, globals_config_path, simulation_config_path, morphology_config_path, simulation_name, forces=forces, pertubation=False, show_velocity_field=True, rm_frames = True)
 
 
 

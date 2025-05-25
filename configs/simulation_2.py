@@ -1,3 +1,8 @@
+""""
+    The inner border of the window of the non-neurons have cpnstant force to "push outwards" from the center of the window.  
+    This border of cells should pull other non-nurons outwards.
+"""
+
 # mechanical properties
 mu = 1                               # friction coefficient
 shrinking_const = 1

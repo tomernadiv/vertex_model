@@ -1,3 +1,8 @@
+""""
+    all non-nuerons want to expand simultaneously.
+    The outer cells should move the fastest.  
+"""
+
 # mechanical properties
 mu = 1                               # friction coefficient
 shrinking_const = 1

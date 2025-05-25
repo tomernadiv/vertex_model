@@ -1,3 +1,6 @@
+""""
+    The nerons want to shrink and oull other cells towards them.
+"""
 # mechanical properties
 mu = 1                               # friction coefficient
 shrinking_const = 0.8

@@ -16,6 +16,7 @@ import matplotlib.image as mpimg
 import matplotlib.gridspec as gridspec
 import tissue
 import pickle
+import shutil
 
 # set seed
 seed = 42

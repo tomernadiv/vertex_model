@@ -1,7 +1,6 @@
 # folders
-/results/
-/frames/
-/output_dir/
+**/frames/
+
 
 
 # Byte-compiled / optimized / DLL files
