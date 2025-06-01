@@ -305,9 +305,9 @@ if __name__ == "__main__":
     save_frame_interval = 5
     dt = 0.025
     velocity_profile_position_bin = 0.5
-    simulation_number = 1
+    simulation_number = 2
     main_force = 'spring' # OR line_tension
-    simulation_name = f"simulation_{simulation_number}_{main_force}"
+    simulation_name = f"simulation_{simulation_number}_{main_force}_cmap"
     globals_config_path = "configs/globals.py"
     simulation_config_path = f"configs/simulation_{simulation_number}.py"
     morphology_config_path = "configs/morphology_config.py"

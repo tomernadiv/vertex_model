@@ -43,7 +43,7 @@ class Tissue:
                     y = cy + self.cell_radius * math.sin(angle)
                     pos = round_pos(x, y)
                     if pos not in node_cache:
-                        self.graph.add_node(pos, pos=pos, neuron=False, force=np.array([0.0, 0.0]), row=row, col=col)
+                        self.graph.add_node(pos, pos=pos, neuron=False, force=np.array([0.0, 0.0]), row=row, col=col, index=i)
                         node_cache[pos] = pos
                     hex_nodes.append(node_cache[pos])
 
@@ -69,11 +69,11 @@ class Tissue:
                 is_neuron = self._init_cell(row, col)
                 self._set_cell_attr(hex_nodes, 'neuron', is_neuron)
                 is_border = neuron_initiation.inner_outline(self.num_layers,self.num_frames, row,self.num_rows,col ,self.num_cols,self.inner_border_layers)
-                self._set_cell_attr(hex_nodes, 'inner_border', is_border)
+
 
                 area = None
                 # Create a Cell object and add it to the stack
-                self.cells.append(Cell(cell_index, hex_nodes, height, area, is_neuron))
+                self.cells.append(Cell(cell_index, hex_nodes, height, area, is_neuron, is_border))
         
         # update metadata for boundry nodes and edges 
         boundary_edges, boundary_nodes  = self._find_boundary(self.graph)
@@ -220,7 +220,7 @@ class Tissue:
             plt.show()
 
     def _coloring_by_value(self, center_value, get_func, ax):
-        eps = 0.1  # range around center_value in log scale
+        eps = 0.2  # range around center_value in log scale
         log_center = np.log10(center_value)
         log_min = log_center - eps
         log_max = log_center + eps
@@ -232,6 +232,7 @@ class Tissue:
             node_keys = cell.get_nodes()
             node_positions = [self.graph.nodes[key]['pos'] for key in node_keys]
             color_map = self.neurons_cmap if cell.is_neuron() else self.non_neurons_cmap
+            color_map = self.inner_border_cmap if cell.inner_border[0] else color_map
 
             val = get_func(cell)
             safe_val = max(val, 1e-6)  # prevent log10 domain errors
@@ -294,8 +295,11 @@ class Tissue:
         forces = list(self.forces)
         
         if "push_out" in forces:
-            for v1 in self.graph.nodes:
-                self._f_push_out(v1)
+            inner_border_cells = [cell for cell in self.cells if cell.inner_border[0] is True]
+            for cell in inner_border_cells:
+                self._f_push_out(cell)
+
+                
             forces.remove("push_out")
         
         #  iterate over each unique edge
@@ -390,7 +394,7 @@ class Tissue:
         else:
             return np.array([0.0, 0.0]), np.array([0.0, 0.0])
         
-    def _f_push_out(self, v1):
+    def _f_push_out(self, cell, tangent_indices = [2,4]):
         """
         Calculate the outward force, if:
             - v1 and v2 are not neurons
@@ -398,32 +402,44 @@ class Tissue:
 
         returns the normalized force oposite to the direction to the center of the frame
         """
-        is_neuron = self.v1['neuron']
-        is_border = self.v1["inner_border"]
+        border_type = cell.inner_border[1]
 
-        if (not is_neuron) and is_border:
+        nodes = cell.nodes
+
+        tangent_node1 = nodes[tangent_indices[0]]
+        tangent_node2 = nodes[tangent_indices[1]]
+
+        pose1 = self.graph.nodes[tangent_node1]['pos']
+        pose2 = self.graph.nodes[tangent_node2]['pos']
+
+        # Tangent vector: from pose1 to pose2
+        tangent = np.array(pose2) - np.array(pose1)
+
+        # Normalize the tangent vector (optional but often useful)
+        tangent = tangent / np.linalg.norm(tangent)
+
+        # Perpendicular vector (rotate 90° counter-clockwise in 2D)
+        if border_type == "right":
+            # vector as usual (90° counter-clockwise)
+            vector = np.array([-tangent[1], tangent[0]])
+        elif border_type == "left":
+            # Opposite of the usual vector (90° clockwise)
+            vector = np.array([tangent[1], -tangent[0]])
+        elif border_type == "bottom":
+            # Rotate 90° clockwise from tangent
+            vector = -np.array(tangent)
+        elif border_type == "top":
+            # Rotate 90° counter-clockwise from tangent
+            vector = np.array(tangent)
+
+
+        for v1 in nodes:
             v1_force = self.graph.nodes[v1]['force']
-            push_force = self._compute_outwards_force(v1)
+            push_force = vector * self.push_out_force_strength
             self.graph.nodes[v1]['force'] = (v1_force + push_force)
-            return            
-        return 
+
     
-    def _compute_outwards_force(self,v1):
-        vx, vy = self.graph.nodes[v1]['pos']
-        col = self.graph.nodes[v1]['col']
-        frame_start, frame_end = neuron_initiation.get_frame_borders(col, self.num_cols, self.num_frames)
-        # Outward vector from frame center to vertex
-        cx = (frame_start + frame_end) / 2
-        cy = self.num_rows / 2  # center vertically
-        dx = vx - cx
-        dy = vy - cy
-        norm = (dx ** 2 + dy ** 2) ** 0.5
-        if norm == 0:  # Handle edge case where vertex is exactly at center
-            return np.array([0.0, 0.0])
-    
-        strength = self.push_out_force_strength
-        # Return normalized force vector
-        return np.array([strength * dx / norm, strength * dy / norm])
+
     
 
     def _is_nueron_edge(self, v1, v2):

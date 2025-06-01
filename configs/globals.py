@@ -2,6 +2,7 @@ from math import sqrt
 
 non_neurons_cmap = 'Greens'
 neurons_cmap = 'Reds'
+inner_border_cmap = 'Blues'
 
 ### phyisical constants ###
 # cell size

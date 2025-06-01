@@ -38,7 +38,7 @@ def get_frame_borders(col, num_cols, num_frames):
 
 def inner_outline(num_layers: int,num_frames: int,row: int,num_rows: int,col: int,num_cols: int,
 inner_border_thickness: int = 1
-) -> bool:
+) ->  tuple[bool, str | None]:
     
     frame_start, frame_end  = get_frame_borders(col, num_cols, num_frames)
 
@@ -50,22 +50,26 @@ inner_border_thickness: int = 1
 
     # Check if we're even within the inner area bounds
     if not (inner_top <= row < inner_bottom and inner_left <= col < inner_right):
-        return False
+        return (False, None)
 
     # Top edge: row is within top thickness, and col is within the frame horizontally
-    top_edge = inner_top <= row < inner_top + inner_border_thickness
+    if inner_top <= row < inner_top + inner_border_thickness:
+        return (True, "top")
 
     # Bottom edge: row is within bottom thickness, and col is within the frame horizontally
-    bottom_edge = inner_bottom - inner_border_thickness < row <= inner_bottom
+    if inner_bottom - inner_border_thickness <= row < inner_bottom:
+        return (True, "bottom")
 
     # Left edge: col is within left thickness, and row is within the frame vertically
-    left_edge = inner_left <= col < inner_left + inner_border_thickness
+    if inner_left <= col < inner_left + inner_border_thickness:
+        return (True, "left")
 
     # Right edge: col is within right thickness, and row is within the frame vertically
-    right_edge = inner_right - inner_border_thickness < col <= inner_right
+    if inner_right - inner_border_thickness <= col < inner_right:
+        return (True, "right")
 
 
-    return top_edge or bottom_edge or left_edge or right_edge
+    return (False, None)
 
 
 
