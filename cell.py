@@ -1,4 +1,4 @@
-from globals import *
+from configs.globals import *
 
 class Cell:
     def __init__(self, cell_index, nodes, height, area = None, neuron=False):

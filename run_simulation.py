@@ -1,6 +1,7 @@
 
 from configs.run_config import *
 import tissue
+from configs.imports import *
 
 # plotting function
 def plot_timestamp(T: tissue, t: int, energy, area, position, velocity, time_limit,
@@ -40,13 +41,13 @@ def plot_timestamp(T: tissue, t: int, energy, area, position, velocity, time_lim
     ax4.tick_params(axis='y', labelcolor='tab:blue')
 
     # Text annotations on the tissue plot
-    ax1.text(0.02, 0.025, f"Energy: {energy[-1]:.3f}",
+    ax1.text(0.02, -0.05, f"Energy: {energy[-1]:.3f}",
              transform=ax1.transAxes,
-             fontsize=14, bbox=dict(facecolor='red', alpha=0.5, boxstyle='round'))
+             fontsize=14, bbox=dict(facecolor='yellow', alpha=0.9, boxstyle='round', zorder=10))
 
-    ax1.text(0.75, 0.025, f"Area: {area[-1]:.3f}%",
+    ax1.text(0.75, -0.05, f"Area: {area[-1]:.3f}%",
              transform=ax1.transAxes,
-             fontsize=14, bbox=dict(facecolor='blue', alpha=0.5, boxstyle='round'))
+             fontsize=14, bbox=dict(facecolor='yellow', alpha=0.9, boxstyle='round', zorder=10))
 
     plt.tight_layout()
 
@@ -93,7 +94,6 @@ def run_simulation(T:tissue.Tissue,                  # tissue object
                    dt=0.1,                           # time step  
                    output_dir='',                    # output directory for saving frames
                    save_frame_interval = 10,         # save frame every x timestamps
-                   forces=['spring'],                # forces to apply, e.g. ['spring', 'line_tension']
                    velocity_profile_position_bin=1,  # bin size for velocity profile
                    show_velocity_field=False):       # whether to show velocity field in the tisssue plot
 
@@ -135,7 +135,7 @@ def run_simulation(T:tissue.Tissue,                  # tissue object
                            output_dir=output_dir,
                            show_velocity_field=show_velocity_field)
         # Update for next iteration
-        T.compute_all_forces(forces)
+        T.compute_all_forces()
         T.update_positions(dt=dt)
         T.update_heights()
 
@@ -251,7 +251,7 @@ def convergence_plots():
 
 
 
-def simulation(time_limit, save_frame_interval, dt, globals_config_path, simulation_config_path, morphology_config_path, simulation_name, forces, pertubation=False, show_velocity_field=False, rm_frames = True):
+def simulation(time_limit, save_frame_interval, dt, globals_config_path, simulation_config_path, morphology_config_path, simulation_name, pertubation=False, show_velocity_field=False, rm_frames = True):
 
     # sanity check orints
     print(f"Simulation Parameters: {simulation_name}")
@@ -276,10 +276,11 @@ def simulation(time_limit, save_frame_interval, dt, globals_config_path, simulat
 
     # redirect stdout to log file
     original_stdout = sys.stdout
-    sys.stdout = open(os.path.join(output_dir, "log.txt"), "w")
+    log_file = open(os.path.join(output_dir, "log.txt"), "w", buffering=save_frame_interval)
+    sys.stdout = log_file
 
     # run simulation
-    result_dict = run_simulation(T=T, time_limit=time_limit, forces=forces,velocity_profile_position_bin=velocity_profile_position_bin, output_dir=output_dir, dt=dt, save_frame_interval=save_frame_interval, show_velocity_field=show_velocity_field)
+    result_dict = run_simulation(T=T, time_limit=time_limit, velocity_profile_position_bin=velocity_profile_position_bin, output_dir=output_dir, dt=dt, save_frame_interval=save_frame_interval, show_velocity_field=show_velocity_field)
     
     # create video
     replay_simulation(frames_dir=os.path.join(output_dir, "frames"), simulation_name=simulation_name)
@@ -291,29 +292,28 @@ def simulation(time_limit, save_frame_interval, dt, globals_config_path, simulat
         shutil.rmtree(os.path.join(output_dir, "frames"))
     
     # redirect stdout back to console
+    log_file.flush()     # flush to disk
+    log_file.close()     
     sys.stdout = original_stdout
     print("Done.")
 
 
 
 if __name__ == "__main__":
-    simulation_to_forces = {
-        "simulation_1": ['spring', 'line_tension'],
-        "simulation_2": ['spring', 'line_tension', 'push_out'],
-        "simulation_3": ['spring', 'line_tension']
-    }
-    time_limit = 50
-    save_frame_interval = 5
-    dt = 0.1
-    velocity_profile_position_bin = 0.5
-    simulation_number = 2
-    simulation_name = f"simulation_{simulation_number}"
-    forces = simulation_to_forces[simulation_name]
-    globals_config_path = "configs/globals.py"
-    simulation_config_path = f"configs/{simulation_name}.py"
-    morphology_config_path = "configs/morphology_config.py"
 
-    simulation(time_limit, save_frame_interval, dt, globals_config_path, simulation_config_path, morphology_config_path, simulation_name, forces=forces, pertubation=False, show_velocity_field=True, rm_frames = True)
+    time_limit = 120
+    save_frame_interval = 5
+    dt = 0.025
+    velocity_profile_position_bin = 0.5
+    simulation_number = 1
+    main_force = 'spring' # OR line_tension
+    simulation_name = f"simulation_{simulation_number}_{main_force}"
+    globals_config_path = "configs/globals.py"
+    simulation_config_path = f"configs/simulation_{simulation_number}.py"
+    morphology_config_path = "configs/morphology_config.py"
+    show_velocity_field = True
+
+    simulation(time_limit, save_frame_interval, dt, globals_config_path, simulation_config_path, morphology_config_path, simulation_name, pertubation=False, show_velocity_field=show_velocity_field, rm_frames = True)
 
 
 

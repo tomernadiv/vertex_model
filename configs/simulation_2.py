@@ -4,11 +4,12 @@
 """
 
 # mechanical properties
+forces = ['spring' ,'push_out']
 mu = 1                               # friction coefficient
 shrinking_const = 1
 expansion_const = 1
 inner_border_layers = 1
-push_out_force_strength = 1
+push_out_force_strength = 2
 spring_constant_marginal = 2         # spring between neighbouring vertices
 spring_constant_boundary = 2         # spring between boundary vertices (vertices with 3 neighbours)
 spring_constant_internal = 2         # spring between opposite vertices of the same cell

@@ -2,8 +2,9 @@
     The nerons want to shrink and oull other cells towards them.
 """
 # mechanical properties
+forces = ['spring']
 mu = 1                               # friction coefficient
-shrinking_const = 0.8
+shrinking_const = 0.5
 expansion_const = 1
 inner_border_layers = 0
 push_out_force_strength = 0.0

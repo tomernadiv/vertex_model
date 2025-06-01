@@ -1,8 +1,9 @@
-from globals import *
+
 from cell import Cell
 from networkx.algorithms.boundary import edge_boundary
 import neuron_initiation 
 import runpy
+from configs.imports import *
 
 
 class Tissue:
@@ -12,6 +13,8 @@ class Tissue:
         self.graph = nx.Graph()
         self.cells: list[Cell] = []
         self._create_grid()
+        self.initial_height = self.cells[0].get_height()
+        self.initial_area = self.cells[0].get_area()
 
     
     def _create_grid(self):
@@ -60,18 +63,13 @@ class Tissue:
                         self.graph.add_edge(n1, n2, edge_type='internal')
 
                 cell_index = int(row * self.num_cols + col)
-                height = cell_initial_height                # can be modified later with a smarter logic
+                height = self.cell_initial_height                # can be modified later with a smarter logic
                 
                 # check if nueron or not 
                 is_neuron = self._init_cell(row, col)
-                
-
-                if is_neuron:
-                    for node in hex_nodes:
-                        self.graph.nodes[node]['neuron'] = True # set neuron flag for all vertices of the cell
-                else:
-                    for node in hex_nodes:
-                        self.graph.nodes[node]['neuron'] = False
+                self._set_cell_attr(hex_nodes, 'neuron', is_neuron)
+                is_border = neuron_initiation.inner_outline(self.num_layers,self.num_frames, row,self.num_rows,col ,self.num_cols,self.inner_border_layers)
+                self._set_cell_attr(hex_nodes, 'inner_border', is_border)
 
                 area = None
                 # Create a Cell object and add it to the stack
@@ -88,6 +86,9 @@ class Tissue:
         nx.set_node_attributes(self.graph, False, 'boundary')  # Set default to False
         nx.set_node_attributes(self.graph, boundary_attr, 'boundary')  # Update boundary nodes to True
 
+    def _set_cell_attr(self, hex_nodes, attr, value):
+        for node in hex_nodes:
+            self.graph.nodes[node][attr] = value
 
     def _init_simulation_properties(self, globals_config_path, simulation_config_path, morph_globals_path):
         # Load constants
@@ -157,22 +158,25 @@ class Tissue:
 
         # Draw edges grouped by type
         edge_colors = {
-            'marginal': 'gray',
-            'internal': 'red',
-            'boundary': 'green'
+            'marginal': ('black',0.7),
+            'internal': ('grey', 0.3),
+            'boundary': ('green', 0.4)
         }
-        for edge_type, color in edge_colors.items():
+        for edge_type, (color, width) in edge_colors.items():
             edge_list = [
                 (u, v) for u, v, d in self.graph.edges(data=True)
                 if d.get('edge_type') == edge_type
             ]
-            nx.draw_networkx_edges(
+            edge_collection  = nx.draw_networkx_edges(
                 self.graph, pos,
                 edgelist=edge_list,
                 edge_color=color,
-                width=0.5,
+                width=width,
                 ax=ax
             )
+            # Set zorder manually
+            if edge_collection is not None:
+                edge_collection.set_zorder(5)
 
         node_colors = [
             'green' if self.graph.nodes[node].get("boundary") else 'gray'
@@ -181,7 +185,7 @@ class Tissue:
         nx.draw_networkx_nodes(
             self.graph,
             pos,
-            node_size=5,
+            node_size=1,
             node_color=node_colors,
             ax=ax
         )
@@ -191,21 +195,22 @@ class Tissue:
             for node in self.graph.nodes:
                 x, y = self.graph.nodes[node]['pos']
                 vx, vy = self.graph.nodes[node]['velocity']
-                ax.quiver(x, y, vx, vy, angles='xy', scale_units='xy', color='dimgray', scale=0.15, zorder=10)
+                ax.quiver(x, y, vx, vy, angles='xy', scale_units='xy', color='yellow', scale=0.8, zorder=15, width = 0.003)
 
          
         # Dynamically get cell attribute method
         if color_by == 'height':
-            self._coloring_by_value(max_height, min_height, lambda cell: cell.get_height(), ax)
+            self._coloring_by_value(self.initial_height, lambda cell: cell.get_height(), ax)
         elif color_by == 'area':
-            self._coloring_by_value(max_area, min_area, lambda cell: cell.get_area(), ax)
+            self._coloring_by_value(self.initial_area, lambda cell: cell.get_area(), ax)
         else:
             raise ValueError(f"Unknown color_by value: {color_by}")
 
         if legend:
-            neuron_patch = patches.Patch(color=cm.get_cmap(neurons_cmap)(0.5), label='Neuron')
-            non_neuron_patch = patches.Patch(color=cm.get_cmap(non_neurons_cmap)(0.5), label='Non-neuron')
-            ax.legend(handles=[neuron_patch, non_neuron_patch], loc='upper right')
+            neuron_patch = patches.Patch(color=cm.get_cmap(self.neurons_cmap)(0.5), label='Neuron')
+            non_neuron_patch = patches.Patch(color=cm.get_cmap(self.non_neurons_cmap)(0.5), label='Non-neuron')
+            legend = ax.legend(handles=[neuron_patch, non_neuron_patch], loc='upper right')
+
 
         ax.set_aspect('equal')
         ax.axis('off')
@@ -214,22 +219,27 @@ class Tissue:
         if created_fig:
             plt.show()
 
-    def _coloring_by_value(self, max_val, min_val, get_func, ax):
-        log_min = np.log10(min_val)
-        log_max = np.log10(max_val)
-        norm = colors.Normalize(vmin=log_min, vmax=log_max)
+    def _coloring_by_value(self, center_value, get_func, ax):
+        eps = 0.1  # range around center_value in log scale
+        log_center = np.log10(center_value)
+        log_min = log_center - eps
+        log_max = log_center + eps
+
+        # Use TwoSlopeNorm to center the colormap on center_value
+        norm = colors.TwoSlopeNorm(vmin=log_min, vcenter=log_center, vmax=log_max)
 
         for cell in self.cells:
             node_keys = cell.get_nodes()
             node_positions = [self.graph.nodes[key]['pos'] for key in node_keys]
-            color_map = neurons_cmap if cell.is_neuron() else non_neurons_cmap
+            color_map = self.neurons_cmap if cell.is_neuron() else self.non_neurons_cmap
 
-            val = get_func(cell)  # ← this was also missing!
-            safe_val = max(val, min_val)  # prevent log10 errors
-            log_scale = np.log10(safe_val)
+            val = get_func(cell)
+            safe_val = max(val, 1e-6)  # prevent log10 domain errors
+            log_val = np.log10(safe_val)
 
-            color = cm.get_cmap(color_map)(norm(log_scale))
-            ax.fill(*zip(*node_positions), color=color, alpha=0.8)
+            color = cm.get_cmap(color_map)(norm(log_val))
+            ax.fill(*zip(*node_positions), color=color, alpha=0.5)
+
 
     def plot_heights_distribution(self, ax=None, bins=30, log_scale=True):
         """
@@ -245,12 +255,12 @@ class Tissue:
         ax.set_ylabel('proportion')
         ax.set_title('Distribution of Cell Heights')
         ax.set_ylim(0, 1)
-        ax.set_xlim(min_height, max_height)
+        ax.set_xlim(self.min_height, self.max_height)
 
         if log_scale:
             ax.set_xscale('log')
-            min_height_log, max_height_log = np.log10(min_height), np.log10(max_height)
-            ax.set_xlim(min_height_log, max_height_log)
+            self.min_height_log, self.max_height_log = np.log10(self.min_height), np.log10(self.max_height)
+            ax.set_xlim(self.min_height_log, self.max_height_log)
             ax.set_title('Distribution of Cell Heights (Log Scale)')
 
         plt.show()
@@ -276,28 +286,37 @@ class Tissue:
         for node in self.graph.nodes:
             self.graph.nodes[node]['force'] = np.array([0.0,0.0] ,dtype=float)
     
-    def compute_all_forces(self, forces: list):
+    def compute_all_forces(self):
         """
         Compute the sum of forces acting on the vertices of the graph.
         """
         self.zeroing_forces()
-
+        forces = list(self.forces)
+        
+        if "push_out" in forces:
+            for v1 in self.graph.nodes:
+                self._f_push_out(v1)
+            forces.remove("push_out")
+        
         #  iterate over each unique edge
         for v1, v2 in self.graph.edges:
-            # extract forces
-            force_v1 = self.graph.nodes[v1]['force']
-            force_v2 = self.graph.nodes[v2]['force']
-            # iterate over all forces
-            for force_name in forces:
-                # compute force
-                temp_force_v1, temp_force_v2 = self._compute_force(force_name, v1, v2)  
+                # don't compute forces on boundary edges
+                if self._get_edge_type(v1, v2) == "boundary":
+                    continue
 
-                # add forces
-                force_v1 += temp_force_v1
-                force_v2 += temp_force_v2
+                # extract forces
+                force_v1 = self.graph.nodes[v1]['force']
+                force_v2 = self.graph.nodes[v2]['force']
+                for force_name in forces:
+                    # compute force
+                    temp_force_v1, temp_force_v2 = self._compute_force(force_name, v1, v2)  
+
+                    # add forces
+                    force_v1 += temp_force_v1
+                    force_v2 += temp_force_v2
             
-            self.graph.nodes[v1]['force'] = force_v1
-            self.graph.nodes[v2]['force'] = force_v2
+                self.graph.nodes[v1]['force'] = force_v1
+                self.graph.nodes[v2]['force'] = force_v2
             
 
     def update_positions(self, dt=1):
@@ -365,13 +384,13 @@ class Tissue:
                 raise RuntimeError(f"distance of nodes: {v1}, {v2} is zero!")
 
             unit_vector = np.array([dx / dist, dy / dist])
-            force_vector = line_tension_constant * unit_vector
+            force_vector = self.line_tension_constant * unit_vector
 
             return force_vector, (force_vector *(-1))
         else:
             return np.array([0.0, 0.0]), np.array([0.0, 0.0])
         
-    def _f_push_out(self, v1, v2):
+    def _f_push_out(self, v1):
         """
         Calculate the outward force, if:
             - v1 and v2 are not neurons
@@ -379,20 +398,15 @@ class Tissue:
 
         returns the normalized force oposite to the direction to the center of the frame
         """
-        edge_type = self._get_edge_type(v1, v2)
-        is_neuron = self._is_nueron_edge(v1, v2)
+        is_neuron = self.v1['neuron']
+        is_border = self.v1["inner_border"]
 
-        if (not is_neuron) and (edge_type=="marginal"):
-            if self.graph.nodes[v1]['col'] == 2 and self.graph.nodes[v1]['row'] == 2:
-                print("yey")
-            v1_is_border = neuron_initiation.inner_outline(self.num_layers,self.num_frames,self.graph.nodes[v1]['row'],self.num_rows,self.graph.nodes[v1]['col'],self.num_cols,self.inner_border_layers)
-            v2_is_border = neuron_initiation.inner_outline(self.num_layers,self.num_frames,self.graph.nodes[v2]['row'],self.num_rows,self.graph.nodes[v2]['col'],self.num_cols,self.inner_border_layers)
-
-            if v1_is_border and v2_is_border: 
-                return self._compute_outwards_force(v1), self._compute_outwards_force(v2)
-                            
-
-        return np.array([0.0, 0.0]), np.array([0.0, 0.0])
+        if (not is_neuron) and is_border:
+            v1_force = self.graph.nodes[v1]['force']
+            push_force = self._compute_outwards_force(v1)
+            self.graph.nodes[v1]['force'] = (v1_force + push_force)
+            return            
+        return 
     
     def _compute_outwards_force(self,v1):
         vx, vy = self.graph.nodes[v1]['pos']
@@ -438,7 +452,7 @@ class Tissue:
 
             cell.update_area(area)
 
-            new_height = cell_volume / area  
+            new_height = self.cell_volume / area  
             cell.update_height(new_height)
     
 
@@ -488,7 +502,7 @@ class Tissue:
 
             # Line tension energy: 0.5 * k * (delta_x)^2
             if self._is_nueron_edge(v1, v2):
-                line_tension_energy = 0.5 * line_tension_constant * (dist)**2
+                line_tension_energy = 0.5 * self.line_tension_constant * (dist)**2
                 total_energy += line_tension_energy
             
             # Spring energy: 0.5 * k * (l - l0)^2
