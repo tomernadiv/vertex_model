@@ -1,4 +1,3 @@
-
 from cell import Cell
 from networkx.algorithms.boundary import edge_boundary
 import neuron_initiation 
@@ -71,7 +70,7 @@ class Tissue:
                 is_border = neuron_initiation.inner_outline(self.num_layers,self.num_frames, row,self.num_rows,col ,self.num_cols,self.inner_border_layers)
 
 
-                area = None
+                area = self.config_dict['cell_initial_surface_area']
                 # Create a Cell object and add it to the stack
                 self.cells.append(Cell(cell_index, hex_nodes, height, area, is_neuron, is_border))
         
@@ -91,11 +90,26 @@ class Tissue:
             self.graph.nodes[node][attr] = value
 
     def _init_simulation_properties(self, globals_config_path, simulation_config_path, morph_globals_path):
-        # Load constants
+        # Load global and morphology constants
         global_consts = runpy.run_path(globals_config_path)
         morph_consts = runpy.run_path(morph_globals_path)
-
         combined_namespace = {**global_consts, **morph_consts}
+
+        # initiate cell sizes parameters
+        cell_radius = combined_namespace['X_AXIS_LENGTH'] / (1.5 * combined_namespace['num_cols'])  # radius of a cell in the hexagonal grid
+        cell_volume = 6 * 0.5 * ((cell_radius ** 2) * math.sqrt(3) / 2)                   # so that initial height will be 1
+        cell_initial_vertex_length = cell_radius
+        cell_initial_surface_area = 6 * 0.5 * ((cell_radius ** 2) * math.sqrt(3) / 2)
+        cell_initial_height = cell_volume / cell_initial_surface_area
+
+        # add all to combined namespace
+        combined_namespace.update({
+            'cell_radius': cell_radius,
+            'cell_volume': cell_volume,
+            'cell_initial_vertex_length': cell_initial_vertex_length,
+            'cell_initial_surface_area': cell_initial_surface_area,
+            'cell_initial_height': cell_initial_height
+        })
 
         # Read simulation config source code
         with open(simulation_config_path, 'r') as f:
@@ -156,8 +170,10 @@ class Tissue:
         if ax is None:
             fig, ax = plt.subplots(figsize=(6, 6))
             created_fig = True
-        ax.set_xlim(-1, self.num_cols * 3 / 2 + 1)
-        ax.set_ylim(-1, self.num_rows * math.sqrt(3) + 1)
+        x_length = self.num_cols * 1.5 * self.config_dict['cell_radius']
+        y_length = self.num_rows * 1.5 * self.config_dict['cell_radius']
+        ax.set_xlim(-0.05 * x_length, (1+0.05) * x_length)
+        ax.set_ylim(-0.05 * y_length, (1+0.2) * y_length)    
 
         # Draw edges grouped by type
         edge_colors = {

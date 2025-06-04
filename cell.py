@@ -12,7 +12,7 @@ class Cell:
         self.height = height
         self.neuron = neuron
         self.inner_border = inner_border
-        self.area = area if area is not None else cell_initial_surface_area
+        self.area = area
 
     def __repr__(self):
         return f"Cell(index={self.cell_index}, height={self.height:.2f}, neuron={self.neuron})"
