@@ -21,6 +21,15 @@ def plot_timestamp(T: tissue, t: int, energy, area, position, velocity, time_lim
     ax2.set_ylabel("X Velocity")
     sns.scatterplot(x=position, y=velocity, ax=ax2, color='tab:green', s=10)
     sns.lineplot(x=position, y=velocity, ax=ax2, color='tab:green', linewidth=0.1)
+    ax2.set_xlim(0, T.num_cols * 1.5 * T.config_dict['cell_radius'] + 1)
+    ax2.set_ylim(-1, 1)
+
+    # add 2 light gray rectangles to indicate the area of the windows
+    total_width = T.num_cols * 1.5 * T.config_dict['cell_radius']
+    x_middle = total_width / 2
+    marginal_width = T.config_dict['num_layers'] * 1.5 * T.config_dict['cell_radius']
+    ax2.add_patch(patches.Rectangle((marginal_width, -1), x_middle - 2*marginal_width, 2, color='lightgray', alpha=0.5))
+    ax2.add_patch(patches.Rectangle((x_middle+marginal_width, -1), x_middle - 2*marginal_width, 2, color='lightgray', alpha=0.5))
 
     # Energy + Area % over time (bottom right)
     ax3 = fig.add_subplot(gs[1, 1])
@@ -251,7 +260,7 @@ def convergence_plots():
 
 
 
-def simulation(time_limit, save_frame_interval, dt, globals_config_path, simulation_config_path, morphology_config_path, simulation_name, pertubation=False, show_velocity_field=False, rm_frames = True):
+def simulation(time_limit, save_frame_interval, dt, globals_config_path, simulation_config_path, morphology_config_path, simulation_name, velocity_profile_position_bin, pertubation=False, show_velocity_field=False, rm_frames = True):
 
     # sanity check orints
     print(f"Simulation Parameters: {simulation_name}")
@@ -301,19 +310,19 @@ def simulation(time_limit, save_frame_interval, dt, globals_config_path, simulat
 
 if __name__ == "__main__":
 
-    time_limit = 120
+    time_limit = 100
     save_frame_interval = 5
-    dt = 0.025
-    velocity_profile_position_bin = 0.5
+    dt = 0.1
+    velocity_profile_position_bin = 5
     simulation_number = 2
     main_force = 'spring' # OR line_tension
-    simulation_name = f"simulation_{simulation_number}_{main_force}_cmap"
+    simulation_name = f"test"
     globals_config_path = "configs/globals.py"
     simulation_config_path = f"configs/simulation_{simulation_number}.py"
     morphology_config_path = "configs/morphology_config.py"
     show_velocity_field = True
 
-    simulation(time_limit, save_frame_interval, dt, globals_config_path, simulation_config_path, morphology_config_path, simulation_name, pertubation=False, show_velocity_field=show_velocity_field, rm_frames = True)
+    simulation(time_limit, save_frame_interval, dt, globals_config_path, simulation_config_path, morphology_config_path, simulation_name, velocity_profile_position_bin, pertubation=False, show_velocity_field=show_velocity_field, rm_frames = True)
 
 
 

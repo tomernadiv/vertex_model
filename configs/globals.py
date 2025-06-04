@@ -1,8 +1,8 @@
 from math import sqrt
 
-non_neurons_cmap = 'Greens'
-neurons_cmap = 'Reds'
-inner_border_cmap = 'Blues'
+non_neurons_cmap = 'Greens_r'
+neurons_cmap = 'Reds_r'
+inner_border_cmap = 'Blues_r'
 
 ### phyisical constants ###
 # cell size
@@ -16,10 +16,3 @@ cell_initial_height = cell_volume / cell_initial_surface_area
 marginal_min_length = 0.1
 internal_min_length = 0.1
 boundary_min_length = 0.1
-
-# for plotting
-min_height = 10e-1 #1
-max_height = 20e0 #10
-min_area = 10e-1 #1
-max_area = 12e0 #12
-

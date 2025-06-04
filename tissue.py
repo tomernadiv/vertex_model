@@ -109,6 +109,9 @@ class Tissue:
             if not key.startswith("__"):  # skip built-ins
                 setattr(self, key, value)
 
+        # save globals as attribute
+        self.config_dict = combined_namespace
+
 
     def _init_cell(self, row, col):
         # init the morphology of the tissue
@@ -526,47 +529,59 @@ class Tissue:
             total_energy += spring_energy
         return total_energy
 
-    def calculate_velocity_profile(self, bin_length=None):
+    def calculate_velocity_profile(self, bin_length=None, num_rows=0.2):
         """
         Calculate the velocity profile of the tissue.
-        Devide the x-axis into bins and compute the average velocity in each bin.
+        Divide the x-axis into bins and compute the average velocity in each bin.
+        If num_rows is specified, only include nodes within the middle num_rows rows.
+        If it is None, use 0.2 of the total rows, if it is 'all', include all rows.
         """
-        # get x coordinates and x velocities for all nodes
         x_velocities, x_positions = [], []
-        for node in self.graph.nodes:
-            x = self.graph.nodes[node]['pos'][0]
-            vx = self.mu * self.graph.nodes[node]['force'][0]
-            x_velocities.append(vx)
-            x_positions.append(x)
+        
+        # Collect y positions to find row bounds
+        all_y = [self.graph.nodes[node]['pos'][1] for node in self.graph.nodes]
+        y_min, y_max = min(all_y), max(all_y)
 
-        # sort both by x positions
+        # Define vertical window if num_rows specified
+        if num_rows != 'all':
+            if isinstance(num_rows, float):
+                num_rows = int(self.num_rows * num_rows)
+            total_height = y_max - y_min
+            row_height = total_height / self.num_rows
+            window_height = num_rows * row_height
+            y_mid = (y_min + y_max) / 2
+            y_lower = y_mid - window_height / 2
+            y_upper = y_mid + window_height / 2
+        else:
+            y_lower, y_upper = y_min, y_max
+
+        # Get x coords and velocities for nodes in middle rows
+        for node in self.graph.nodes:
+            x, y = self.graph.nodes[node]['pos']
+            if y_lower <= y <= y_upper:
+                vx = self.mu * self.graph.nodes[node]['force'][0]
+                x_velocities.append(vx)
+                x_positions.append(x)
+
+        # Sort
         sorted_indices = np.argsort(x_positions)
         x_positions = np.array(x_positions)[sorted_indices]
         x_velocities = np.array(x_velocities)[sorted_indices]
 
         if bin_length is None:
             return x_positions, x_velocities
-        
-        # create bins
+
         bins = np.arange(min(x_positions), max(x_positions), bin_length)
-
-        # Assign each x_position to a bin
         bin_indices = np.digitize(x_positions, bins) - 1
-
-        # Filter out-of-bound indices
         valid = (bin_indices >= 0) & (bin_indices < len(bins) - 1)
         bin_indices = bin_indices[valid]
         velocities = x_velocities[valid]
 
-        # Sum and count per bin
         sum_per_bin = np.bincount(bin_indices, weights=velocities, minlength=len(bins)-1)
         count_per_bin = np.bincount(bin_indices, minlength=len(bins)-1)
-
-        # Compute means, avoiding division by zero
-        bin_means = np.divide(sum_per_bin, count_per_bin, out=np.zeros_like(sum_per_bin), where=count_per_bin!=0)
-
-        # return bin centers and means
+        bin_means = np.divide(sum_per_bin, count_per_bin, out=np.zeros_like(sum_per_bin), where=count_per_bin != 0)
         bin_centers = (bins[:-1] + bins[1:]) / 2
+
         return bin_centers, bin_means
 
 
