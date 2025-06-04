@@ -1,5 +1,6 @@
 """"
-    The nerons want to shrink and oull other cells towards them.
+    Neurons shrink 
+    The nerons want to shrink and  other cells towards them.
 """
 # mechanical properties
 forces = ['spring']

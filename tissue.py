@@ -3,6 +3,7 @@ from networkx.algorithms.boundary import edge_boundary
 import neuron_initiation 
 import runpy
 from configs.imports import *
+from scipy.spatial import ConvexHull
 
 
 class Tissue:
@@ -175,16 +176,17 @@ class Tissue:
         ax.set_xlim(-0.05 * x_length, (1+0.05) * x_length)
         ax.set_ylim(-0.05 * y_length, (1+0.2) * y_length)    
 
-        # Draw edges grouped by type
+        # Draw edges grouped by type - anything but non-neuron + marginal edges
         edge_colors = {
             'marginal': ('black',0.7),
             'internal': ('grey', 0.3),
-            'boundary': ('green', 0.4)
+            'boundary': ('green', 0.4),
         }
+        
         for edge_type, (color, width) in edge_colors.items():
             edge_list = [
                 (u, v) for u, v, d in self.graph.edges(data=True)
-                if d.get('edge_type') == edge_type
+                if (d.get('edge_type') == edge_type)
             ]
             edge_collection  = nx.draw_networkx_edges(
                 self.graph, pos,
@@ -195,8 +197,12 @@ class Tissue:
             )
             # Set zorder manually
             if edge_collection is not None:
-                edge_collection.set_zorder(5)
-
+                if isinstance(edge_collection, list):
+                    for ec in edge_collection:
+                        ec.set_zorder(5)
+                else:
+                    edge_collection.set_zorder(5)
+                    
         node_colors = [
             'green' if self.graph.nodes[node].get("boundary") else 'gray'
             for node in self.graph.nodes
@@ -204,10 +210,12 @@ class Tissue:
         nx.draw_networkx_nodes(
             self.graph,
             pos,
-            node_size=1,
+            node_size=2,
             node_color=node_colors,
             ax=ax
         )
+
+        
 
         # Draw velocity field, if requested
         if velocity_field:
@@ -228,8 +236,8 @@ class Tissue:
         if legend:
             neuron_patch = patches.Patch(color=cm.get_cmap(self.neurons_cmap)(0.5), label='Neuron')
             non_neuron_patch = patches.Patch(color=cm.get_cmap(self.non_neurons_cmap)(0.5), label='Non-neuron')
-            legend = ax.legend(handles=[neuron_patch, non_neuron_patch], loc='upper right')
-
+            legend = ax.legend(handles=[neuron_patch, non_neuron_patch],loc='upper right',framealpha=1)
+            legend.set_zorder(1000)
 
         ax.set_aspect('equal')
         ax.axis('off')
@@ -238,11 +246,10 @@ class Tissue:
         if created_fig:
             plt.show()
 
-    def _coloring_by_value(self, center_value, get_func, ax):
-        eps = 0.2  # range around center_value in log scale
+    def _coloring_by_value(self, center_value, get_func, ax, area=True, colorbar=True, factor=2):
         log_center = np.log10(center_value)
-        log_min = log_center - eps
-        log_max = log_center + eps
+        log_min = np.log10(center_value / factor) if center_value / factor > 0 else log_center - 1
+        log_max = np.log10(center_value * factor) if center_value * factor > 0 else log_center + 1
 
         # Use TwoSlopeNorm to center the colormap on center_value
         norm = colors.TwoSlopeNorm(vmin=log_min, vcenter=log_center, vmax=log_max)
@@ -254,11 +261,19 @@ class Tissue:
             color_map = self.inner_border_cmap if cell.inner_border[0] else color_map
 
             val = get_func(cell)
-            safe_val = max(val, 1e-6)  # prevent log10 domain errors
-            log_val = np.log10(safe_val)
+            log_val = np.log10(max(val, 1e-6))
 
             color = cm.get_cmap(color_map)(norm(log_val))
             ax.fill(*zip(*node_positions), color=color, alpha=0.5)
+
+        # add colorbar
+        if colorbar:
+            param = 'Area' if area else 'Height'
+            sm = cm.ScalarMappable(cmap=cm.get_cmap(self.neurons_cmap), norm=norm)
+            sm.set_array([])
+            cbar = plt.colorbar(sm, ax=ax, orientation='vertical', pad=0.02, location='left')
+            cbar.set_label(f'{param} (log scale)', rotation=90, labelpad=10)
+            cbar.ax.tick_params(labelsize=8)
 
 
     def plot_heights_distribution(self, ax=None, bins=30, log_scale=True):
@@ -457,9 +472,6 @@ class Tissue:
             push_force = vector * self.push_out_force_strength
             self.graph.nodes[v1]['force'] = (v1_force + push_force)
 
-    
-
-    
 
     def _is_nueron_edge(self, v1, v2):
         return (self.graph.nodes[v1]['neuron'] and self.graph.nodes[v2]['neuron'])
@@ -491,12 +503,16 @@ class Tissue:
             cell.update_height(new_height)
     
 
-    def compute_total_area(self):
+    def compute_total_area(self, window_only=True):
         """
         Compute the total area of the tissue.
         """
         total_area = 0
         for cell in self.cells:
+
+            # check if cell is in the window - it is a non neuron cell
+            if window_only and not cell.is_neuron():
+                continue
 
             node_keys = cell.get_nodes()
             node_positions = [self.graph.nodes[key]['pos'] for key in node_keys]
@@ -599,5 +615,4 @@ class Tissue:
         bin_centers = (bins[:-1] + bins[1:]) / 2
 
         return bin_centers, bin_means
-
 

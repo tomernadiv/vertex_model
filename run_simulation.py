@@ -22,14 +22,14 @@ def plot_timestamp(T: tissue, t: int, energy, area, position, velocity, time_lim
     sns.scatterplot(x=position, y=velocity, ax=ax2, color='tab:green', s=10)
     sns.lineplot(x=position, y=velocity, ax=ax2, color='tab:green', linewidth=0.1)
     ax2.set_xlim(0, T.num_cols * 1.5 * T.config_dict['cell_radius'] + 1)
-    ax2.set_ylim(-1, 1)
+    ax2.set_ylim(-1.5, 1.5)
 
     # add 2 light gray rectangles to indicate the area of the windows
     total_width = T.num_cols * 1.5 * T.config_dict['cell_radius']
     x_middle = total_width / 2
     marginal_width = T.config_dict['num_layers'] * 1.5 * T.config_dict['cell_radius']
-    ax2.add_patch(patches.Rectangle((marginal_width, -1), x_middle - 2*marginal_width, 2, color='lightgray', alpha=0.5))
-    ax2.add_patch(patches.Rectangle((x_middle+marginal_width, -1), x_middle - 2*marginal_width, 2, color='lightgray', alpha=0.5))
+    ax2.add_patch(patches.Rectangle((marginal_width, -1.5), x_middle - 2*marginal_width, 10, color='lightgray', alpha=0.5))
+    ax2.add_patch(patches.Rectangle((x_middle+marginal_width, -1.5), x_middle - 2*marginal_width, 10, color='lightgray', alpha=0.5))
 
     # Energy + Area % over time (bottom right)
     ax3 = fig.add_subplot(gs[1, 1])
@@ -312,9 +312,9 @@ if __name__ == "__main__":
 
     time_limit = 100
     save_frame_interval = 5
-    dt = 0.1
+    dt = 0.05
     velocity_profile_position_bin = 5
-    simulation_number = 2
+    simulation_number = 3
     main_force = 'spring' # OR line_tension
     simulation_name = f"test"
     globals_config_path = "configs/globals.py"

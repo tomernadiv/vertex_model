@@ -1,6 +1,7 @@
-non_neurons_cmap = 'Greens_r'
-neurons_cmap = 'Reds_r'
-inner_border_cmap = 'Blues_r'
+non_neurons_cmap = 'hot_r'
+neurons_cmap = 'hot_r'
+inner_border_cmap = 'winter'
+
 
 ### phyisical constants ###
 
