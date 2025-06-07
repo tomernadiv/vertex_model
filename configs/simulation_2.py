@@ -6,7 +6,7 @@
 # mechanical properties
 description = "Inner Border Push Out"
 forces = ['spring' ,'push_out']
-mu = 1                               # friction coefficient
+mu = 1                                       # friction coefficient
 shrinking_const = 1
 expansion_const = 1
 inner_border_layers = 1
@@ -15,6 +15,11 @@ neuron_spring_constant_marginal = 1         # spring between neighbouring vertic
 neuron_spring_constant_boundary = 5         # spring between boundary vertices (vertices with 3 neighbours)
 neuron_spring_constant_internal = 1         # spring between opposite vertices of the same cell
 non_neuron_spring_constant_marginal = 1     # spring between neighbouring vertices
-non_neuron_spring_constant_boundary = 5         # spring between boundary vertices (vertices with 3 neighbours)
-non_neuron_spring_constant_internal = 1         # spring between opposite vertices of the same cell
-line_tension_constant = 0.1          # causes neurons to shrink
+non_neuron_spring_constant_boundary = 5     # spring between boundary vertices (vertices with 3 neighbours)
+non_neuron_spring_constant_internal = 1     # spring between opposite vertices of the same cell
+line_tension_constant = 0.1                 # causes neurons to shrink
+
+# push out param
+push_out_decay_type = 'linear'              # lin, exp or constant
+push_out_decay_constant_lin = 0.000001      
+push_out_decay_constant_exp = 0.000001

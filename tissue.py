@@ -11,7 +11,13 @@ class Tissue:
         self._create_grid()
         self.initial_height = self.cells[0].get_height()
         self.initial_area = self.cells[0].get_area()
+        self.time_step = 1 
 
+    def zero_time_step(self):
+        """
+        Reset the time step to zero.
+        """
+        self.time_step = 1
     
     def _create_grid(self):
         dx = 3/2 * self.cell_radius
@@ -380,8 +386,10 @@ class Tissue:
 
             # update position
             new_pos = pos + velocity * dt
-
             self.graph.nodes[node]['pos'] = tuple(new_pos)
+
+            # update time step
+            self.time_step += 1
 
     def _f_spring(self, v1, v2):
         """
@@ -447,6 +455,11 @@ class Tissue:
             - v1 and v2 are on the inner border of a frame
 
         returns the normalized force oposite to the direction to the center of the frame
+
+        push out can be constant, decay linearly or exponentially
+        linear: f = F * k ** t
+        exponential: f = F * e^(k * t)
+        where k is the decay constant and t is the time step.
         """
         border_type = cell.inner_border[1]
 
@@ -481,7 +494,26 @@ class Tissue:
 
         for v1 in nodes:
             v1_force = self.graph.nodes[v1]['force']
-            push_force = vector * self.push_out_force_strength
+
+            # choose the decay type
+
+            # constant
+            if self.push_out_decay_type == 'constant':
+                push_force = vector * self.push_out_force_strength
+            
+            # linear
+            elif self.push_out_decay_type == 'linear':
+                decay_ratio = max(0, 1 - self.time_step * self.push_out_decay_constant_lin)
+                push_force = vector * self.push_out_force_strength * decay_ratio
+
+            # exponential
+            elif self.push_out_decay_type == 'exp':
+                push_force = vector * self.push_out_force_strength  * np.exp(-self.time_step * self.push_out_decay_constant_exp)
+
+            else:
+                raise ValueError(f"Unknown push out decay type: {self.push_out_decay_type}")
+            
+            # apply the force to the vertex
             self.graph.nodes[v1]['force'] = (v1_force + push_force)
 
 
