@@ -1,10 +1,6 @@
 from cell import Cell
-from networkx.algorithms.boundary import edge_boundary
 import neuron_initiation 
-import runpy
 from configs.imports import *
-from scipy.spatial import ConvexHull
-
 
 class Tissue:
     def __init__(self, globals_config_path, simulation_config_path, morphology_config_path):
@@ -55,7 +51,7 @@ class Tissue:
                         self.graph.add_edge(n1, n2, edge_type='marginal')  
 
                 # add internal edges between 2 extreme nodes in the hexagon (represents "volume")                        
-                internal_pairs = [(0, 3), (1,4), (2, 5)]
+                internal_pairs = [ (0, 2), (2,4), (4,0), (1,3), (3,5), (5,1)] # david star, for diagonal: (0, 3), (1,4), (2, 5)
                 for i, j in internal_pairs:
                     n1 = hex_nodes[i]
                     n2 = hex_nodes[j]
@@ -68,8 +64,12 @@ class Tissue:
                 # check if nueron or not 
                 is_neuron = self._init_cell(row, col)
                 self._set_cell_attr(hex_nodes, 'neuron', is_neuron)
-                is_border = neuron_initiation.inner_outline(self.num_layers,self.num_frames, row,self.num_rows,col ,self.num_cols,self.inner_border_layers)
 
+                # add inner layer if needed
+                if self.inner_border_layers > 0:
+                    is_border = neuron_initiation.inner_outline(self.num_layers,self.num_frames, row,self.num_rows,col ,self.num_cols,self.inner_border_layers)
+                else:
+                    is_border = (False, None)
 
                 area = self.config_dict['cell_initial_surface_area']
                 # Create a Cell object and add it to the stack
@@ -92,9 +92,14 @@ class Tissue:
 
     def _init_simulation_properties(self, globals_config_path, simulation_config_path, morph_globals_path):
         # Load global and morphology constants
-        global_consts = runpy.run_path(globals_config_path)
+        simulation_consts = runpy.run_path(simulation_config_path)
         morph_consts = runpy.run_path(morph_globals_path)
-        combined_namespace = {**global_consts, **morph_consts}
+        combined_namespace = {**simulation_consts, **morph_consts}
+
+        # add globals config 
+        with open(globals_config_path, 'r') as f:
+            globals_data = f.read()
+        exec(globals_data, combined_namespace)
 
         # initiate cell sizes parameters
         cell_radius = combined_namespace['X_AXIS_LENGTH'] / (1.5 * combined_namespace['num_cols'])  # radius of a cell in the hexagonal grid
@@ -112,12 +117,6 @@ class Tissue:
             'cell_initial_height': cell_initial_height
         })
 
-        # Read simulation config source code
-        with open(simulation_config_path, 'r') as f:
-            sim_code = f.read()
-
-        # Execute simulation config in the combined namespace
-        exec(sim_code, combined_namespace)
 
         # Assign all variables as self attributes
         for key, value in combined_namespace.items():
@@ -234,9 +233,19 @@ class Tissue:
             raise ValueError(f"Unknown color_by value: {color_by}")
 
         if legend:
-            neuron_patch = patches.Patch(color=cm.get_cmap(self.neurons_cmap)(0.5), label='Neuron')
-            non_neuron_patch = patches.Patch(color=cm.get_cmap(self.non_neurons_cmap)(0.5), label='Non-neuron')
-            legend = ax.legend(handles=[neuron_patch, non_neuron_patch],loc='upper right',framealpha=1)
+            if self.neurons_out:
+                label_outside = "outside: neurons"
+                label_window = "window: non-neurons"
+            else:
+                label_outside = "outside: non-neurons"
+                label_window = "window: neurons"
+
+            legend_elements = [
+                Line2D([0], [0], linestyle='None', marker='', label=label_outside),
+                Line2D([0], [0], linestyle='None', marker='', label=label_window)
+            ]
+
+            legend = ax.legend(handles=legend_elements, loc='upper right', framealpha=1)
             legend.set_zorder(1000)
 
         ax.set_aspect('equal')
@@ -331,16 +340,11 @@ class Tissue:
         if "push_out" in forces:
             inner_border_cells = [cell for cell in self.cells if cell.inner_border[0] is True]
             for cell in inner_border_cells:
-                self._f_push_out(cell)
-
-                
+                self._f_push_out(cell)   
             forces.remove("push_out")
         
         #  iterate over each unique edge
         for v1, v2 in self.graph.edges:
-                # don't compute forces on boundary edges
-                if self._get_edge_type(v1, v2) == "boundary":
-                    continue
 
                 # extract forces
                 force_v1 = self.graph.nodes[v1]['force']
@@ -350,8 +354,10 @@ class Tissue:
                     temp_force_v1, temp_force_v2 = self._compute_force(force_name, v1, v2)  
 
                     # add forces
-                    force_v1 += temp_force_v1
-                    force_v2 += temp_force_v2
+                    if not self.graph.nodes[v1].get("boundary"):
+                        force_v1 += temp_force_v1
+                    if not self.graph.nodes[v2].get("boundary"):
+                        force_v2 += temp_force_v2
             
                 self.graph.nodes[v1]['force'] = force_v1
                 self.graph.nodes[v2]['force'] = force_v2
@@ -383,20 +389,26 @@ class Tissue:
         """
         dx, dy, dist = self._get_distances(v1,v2)
         # Avoid division by zero
-        if dist == 0:
-            raise RuntimeError(f"distance of nodes: {v1}, {v2} is zero!")
+        if dist < 1e-3:
+            raise RuntimeError(f"distance of nodes: {v1}, {v2} is almost zero!")
         
         # get spring constant accorfing to edge type
         edge_type = self._get_edge_type(v1, v2)
-        spring_constant = getattr(self,f"spring_constant_{edge_type}")
+        spring_constant = self._get_spring_constant(v1, v2, edge_type)
         min_length = getattr(self,f"{edge_type}_min_length")
-
         rest_length = self._get_rest_length(v1, v2, edge_type)
+
         force_magnitude = spring_constant * (dist - rest_length)
-
-
         force_vector = np.array([force_magnitude * dx / dist, force_magnitude * dy / dist])
+
         return force_vector, (force_vector *(-1))
+    
+    def _get_spring_constant(self, v1, v2, edge_type):
+        if self._is_nueron_edge(v1, v2):
+            return getattr(self,f"neuron_spring_constant_{edge_type}")
+        else:
+            return getattr(self,f"non_neuron_spring_constant_{edge_type}")
+
 
     def _get_rest_length(self, v1, v2, edge_type):
         if self._is_nueron_edge(v1, v2):
@@ -509,9 +521,11 @@ class Tissue:
         """
         total_area = 0
         for cell in self.cells:
+            # Determine if the cell should be excluded based on neuron status and neurons_out flag
+            exclude_cell = (self.neurons_out and cell.is_neuron()) or (not self.neurons_out and not cell.is_neuron())
 
-            # check if cell is in the window - it is a non neuron cell
-            if window_only and not cell.is_neuron():
+            # keep only cells insie the window 
+            if window_only and exclude_cell:
                 continue
 
             node_keys = cell.get_nodes()
@@ -548,7 +562,7 @@ class Tissue:
             dx,dy,dist = self._get_distances(v1,v2)
             
             edge_type = self._get_edge_type(v1, v2)
-            spring_constant = getattr(self,f"spring_constant_{edge_type}")
+            spring_constant = self._get_spring_constant(v1, v2, edge_type)
             rest_length = self._get_rest_length(v1, v2, edge_type)
 
             # Line tension energy: 0.5 * k * (delta_x)^2
