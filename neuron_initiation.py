@@ -72,8 +72,25 @@ inner_border_thickness: int = 1
     return (False, None)
 
 
+def get_all_frame_bounds(num_frames: int, num_cols: int, num_rows: int, num_layers: int = 0):
+    """
+    Return a list of (x_start, x_end, y_start, y_end) for all frames.
+    Optionally trims `num_layers` from each side of the frame.
+    """
+    frame_width = num_cols // num_frames
+    frame_bounds = []
 
+    for frame_index in range(num_frames):
+        x_start = frame_index * frame_width + num_layers
+        x_end = (frame_index + 1) * frame_width if frame_index < num_frames - 1 else num_cols
+        x_end -= num_layers
 
+        y_start = num_layers
+        y_end = num_rows - num_layers
+
+        frame_bounds.append((x_start, x_end, y_start, y_end))
+
+    return frame_bounds
 
 
 

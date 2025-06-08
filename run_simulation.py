@@ -49,6 +49,7 @@ def plot_timestamp(T: tissue, t: int, title, energy, total_area, window_area, po
     ax4.set_xlim(0, time_limit)
     ax4.tick_params(axis='y', labelcolor='tab:blue')
 
+
     # Text annotations on the tissue plot
     ax1.text(0.02, -0.05, f"Energy: {energy[-1]:.3f}",
              transform=ax1.transAxes,
@@ -72,6 +73,22 @@ def plot_timestamp(T: tissue, t: int, title, energy, total_area, window_area, po
 
     plt.close(fig)
 
+
+def plot_vx_border(simulation_name: str, vx_series: list[float]):
+    """
+    Plot mean absolute x-velocity of the inner border layer over time and save to file.
+    """
+    plt.figure(figsize=(6, 4))
+    plt.plot(vx_series, color='tab:orange')
+    plt.xlabel("Time step")
+    plt.ylabel("Mean |vx| (Inner Border)")
+    plt.title("Mean X-Velocity of Inner Border Over Time")
+    plt.grid(True)
+    plt.tight_layout()
+
+    output_path = os.path.join('results', simulation_name, "vx_inner_border_plot.png")
+    plt.savefig(output_path)
+    plt.close()
 
 # add some pertubations to check plotting
 def add_pertubation(T:tissue.Tissue):
@@ -131,6 +148,9 @@ def run_simulation(T:tissue.Tissue,                  # tissue object
     output_dir = os.path.join(output_dir, "frames")
     os.makedirs(output_dir, exist_ok=True)
 
+    #initialize a list of x velocities of the inner border layer
+    vx_border_layer_series = []
+
     # iterate overthe graph
     for t in range(0, time_limit):
         print(f"\n---------------------Time {t}---------------------")
@@ -141,6 +161,10 @@ def run_simulation(T:tissue.Tissue,                  # tissue object
         # compute velocity profile
         position, velocity = T.calculate_velocity_profile(bin_length=velocity_profile_position_bin)
         velocity_profiles.append((position, velocity))
+
+        # calculate mean velocity of inner bound layer
+        vx_border = T.compute_inner_border_x_velocity_middle_band()
+        vx_border_layer_series.append(vx_border)
 
         # plot timestamp
         if t % save_frame_interval == 0:
@@ -161,15 +185,21 @@ def run_simulation(T:tissue.Tissue,                  # tissue object
     # stack up results
     positions = [np.array(vp[0]) for vp in velocity_profiles]
     velocities = [np.array(vp[1]) for vp in velocity_profiles]
+    vx_inner_border = np.array(vx_border_layer_series)
     res = {'energy': np.array(energies),
            'areaL': np.array(area_percs),
            'velocity_profile_position': positions,
-           'velocity_profile_velocity': velocities}
+           'velocity_profile_velocity': velocities,
+           'vx_inner_border' : vx_inner_border
+           }
+
     
     # save results
     with open(os.path.join(output_dir, "..", "results.pkl"), 'wb') as f:
         pickle.dump(res, f)
-    
+
+    plot_vx_border(simulation_name= os.path.basename(os.path.dirname(output_dir)), vx_series=vx_inner_border)
+
     return res
 
 def replay_simulation(frames_dir, simulation_name: str, fps: int = 2):

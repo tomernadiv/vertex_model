@@ -1,6 +1,7 @@
 from cell import Cell
 import neuron_initiation 
 from configs.imports import *
+from matplotlib.patches import FancyBboxPatch
 
 class Tissue:
     def __init__(self, globals_config_path, simulation_config_path, morphology_config_path):
@@ -220,7 +221,8 @@ class Tissue:
             ax=ax
         )
 
-        
+         #draw a dashed red outline around the inner frame regions
+        self.draw_frame_outlines(ax)
 
         # Draw velocity field, if requested
         if velocity_field:
@@ -336,6 +338,36 @@ class Tissue:
         for node in self.graph.nodes:
             self.graph.nodes[node]['force'] = np.array([0.0,0.0] ,dtype=float)
     
+    def draw_frame_outlines(self, ax):
+        """
+        Draw dashed red rounded rectangles around inner frame regions.
+        Geometry is calculated once and reused.
+        """
+        if not hasattr(self, 'frame_bounds'):
+            self.frame_bounds = neuron_initiation.get_all_frame_bounds(
+                num_frames=self.num_frames,
+                num_cols=self.num_cols,
+                num_rows=self.num_rows,
+                num_layers=self.num_layers
+            )
+
+        dx = 3 / 2 * self.cell_radius
+        dy = math.sqrt(3) * self.cell_radius
+
+        for x_start, x_end, y_start, y_end in self.frame_bounds:
+            patch = FancyBboxPatch(
+                (x_start * dx - self.cell_radius, y_start * dy),  # corrected for hex grid offset
+                (x_end - x_start) * dx,
+                (y_end - y_start) * dy,
+                boxstyle="round,pad=0.02,rounding_size=3",
+                linewidth=2,
+                linestyle='--',
+                edgecolor='red',
+                facecolor='none',
+                zorder=50
+            )
+            ax.add_patch(patch)
+
     def compute_all_forces(self):
         """
         Compute the sum of forces acting on the vertices of the graph.
@@ -367,7 +399,7 @@ class Tissue:
             
                 self.graph.nodes[v1]['force'] = force_v1
                 self.graph.nodes[v2]['force'] = force_v2
-            
+        
 
     def update_positions(self, dt=1):
         """
@@ -661,4 +693,33 @@ class Tissue:
         bin_centers = (bins[:-1] + bins[1:]) / 2
 
         return bin_centers, bin_means
+    
+    def compute_inner_border_x_velocity_middle_band(self):
+        """
+        Compute the average x-axis velocity of inner-border cells 
+        that lie within the middle third of the tissue height (y-axis).
+        """
+        lower_bound = self.num_rows // 3
+        upper_bound = 2 * self.num_rows // 3
+
+        x_velocities = []
+
+        for cell in self.cells:
+            is_border, _ = cell.inner_border
+            if is_border:
+                # Get row index from any node in the cell
+                node_keys = cell.get_nodes()
+                rows = [self.graph.nodes[node]['row'] for node in node_keys]
+                cell_mean_row_loc = sum(rows) / len(rows)
+
+                if lower_bound <= cell_mean_row_loc <= upper_bound:
+                    # Get average vx across all cell nodes
+                    vx = np.mean([abs(self.graph.nodes[n]['velocity'][0]) for n in node_keys])
+                    x_velocities.append(vx)
+
+        if x_velocities:
+            return np.mean(x_velocities)
+        else:
+            return np.nan
+
 
