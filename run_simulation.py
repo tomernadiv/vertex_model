@@ -347,11 +347,11 @@ def simulation(time_limit, save_frame_interval, dt, globals_config_path, simulat
 
 if __name__ == "__main__":
 
-    time_limit = 100
+    time_limit = 300
     save_frame_interval = 10
     dt = 0.05
     velocity_profile_position_bin = 5
-    simulation_number = 2
+    simulation_number = 1
     simulation_name = f"simulation_{simulation_number}"
     globals_config_path = "configs/globals.py"
     simulation_config_path = f"configs/simulation_{simulation_number}.py"

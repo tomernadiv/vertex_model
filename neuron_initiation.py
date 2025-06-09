@@ -11,13 +11,9 @@ def all_non_neurons(row:int, num_rows:int):
     return False
 
 def outline(num_layers: int, num_frames: int, row: int, num_rows: int, col: int, num_cols: int) -> bool:
-    # Calculate frame width
-    frame_width = num_cols // num_frames
 
     # Determine which frame this column belongs to
-    frame_index = min(col // frame_width, num_frames - 1)  # avoid overflow on last column
-    frame_start = frame_index * frame_width
-    frame_end = (frame_index + 1) * frame_width if frame_index < (num_frames - 1) else num_cols
+    frame_start, frame_end, frame_index = get_frame_borders(col, num_cols, num_frames)
 
     # Check row and column against the outline within the frame
     return (
@@ -34,18 +30,18 @@ def get_frame_borders(col, num_cols, num_frames):
     frame_start = frame_index * frame_width
     frame_end = (frame_index + 1) * frame_width if frame_index < (num_frames - 1) else num_cols
 
-    return frame_start, frame_end
+    return frame_start, frame_end, frame_index
 
 def inner_outline(num_layers: int,num_frames: int,row: int,num_rows: int,col: int,num_cols: int,
 inner_border_thickness: int = 1
 ) ->  tuple[bool, str | None]:
     
-    frame_start, frame_end  = get_frame_borders(col, num_cols, num_frames)
+    frame_start, frame_end , _ = get_frame_borders(col, num_cols, num_frames)
 
     # Define inner window bounds
-    inner_top = num_layers
-    inner_bottom = num_rows - num_layers
-    inner_left = frame_start + num_layers
+    inner_top = num_layers - 1
+    inner_bottom = num_rows - num_layers 
+    inner_left = frame_start + num_layers -1
     inner_right = frame_end - num_layers
 
     # Check if we're even within the inner area bounds
