@@ -566,8 +566,6 @@ class Tissue:
         for v1 in nodes:
             v1_force = self.graph.nodes[v1]['force']
 
-            # choose the decay type
-
             # constant
             if self.push_out_decay_type == 'constant':
                 push_force = vector * self.push_out_force_strength
@@ -581,8 +579,13 @@ class Tissue:
             elif self.push_out_decay_type == 'exp':
                 push_force = vector * self.push_out_force_strength  * np.exp(-self.time_step * self.push_out_decay_constant_exp)
 
+
             else:
                 raise ValueError(f"Unknown push out decay type: {self.push_out_decay_type}")
+            
+            # ensure the force is at least the minimum push out force
+            if np.linalg.norm(push_force) < self.min_push_out_force:
+                push_force = vector * self.min_push_out_force
             
             # apply the force to the vertex
             self.graph.nodes[v1]['force'] = (v1_force + push_force)

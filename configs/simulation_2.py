@@ -10,7 +10,7 @@ mu = 1                                       # friction coefficient
 shrinking_const = 1
 expansion_const = 1
 inner_border_layers = 1
-push_out_force_strength = 2
+push_out_force_strength = 3
 neuron_spring_constant_marginal = 1         # spring between neighbouring vertices
 neuron_spring_constant_boundary = 5         # spring between boundary vertices (vertices with 3 neighbours)
 neuron_spring_constant_internal = 1         # spring between opposite vertices of the same cell
@@ -20,6 +20,7 @@ non_neuron_spring_constant_internal = 1     # spring between opposite vertices o
 line_tension_constant = 0.1                 # causes neurons to shrink
 
 # push out param
-push_out_decay_type = 'linear'              # lin, exp or constant
+min_push_out_force = 0.1                   # minimum force to push outwards
+push_out_decay_type = 'constant'              # lin, exp or constant
 push_out_decay_constant_lin = 0.000001      
 push_out_decay_constant_exp = 0.000001

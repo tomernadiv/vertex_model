@@ -38,14 +38,14 @@ def plot_timestamp(T: tissue, t: int, title, energy, total_area, window_area, po
     ax3.set_xlabel("Time step")
     ax3.set_ylabel("Total Energy", color='tab:red')
     ax3.set_xlim(0, time_limit)
-    ax3.set_ylim(0, energy[0] * 1.5)
+    ax3.set_ylim(energy[0] * 0.9, energy[0] * 3)
     ax3.tick_params(axis='y', labelcolor='tab:red')
     ax3.grid(True)
 
     ax4 = ax3.twinx()
     ax4.plot(range(t + 1), window_area, color='tab:blue')
     ax4.set_ylabel("% Area", color='tab:blue')
-    ax4.set_ylim(0, 150)
+    ax4.set_ylim(window_area[0]*0.9, window_area[0]*3) 
     ax4.set_xlim(0, time_limit)
     ax4.tick_params(axis='y', labelcolor='tab:blue')
 
@@ -347,11 +347,11 @@ def simulation(time_limit, save_frame_interval, dt, globals_config_path, simulat
 
 if __name__ == "__main__":
 
-    time_limit = 300
+    time_limit = 500
     save_frame_interval = 10
-    dt = 0.05
+    dt = 0.1
     velocity_profile_position_bin = 5
-    simulation_number = 1
+    simulation_number = 2
     simulation_name = f"simulation_{simulation_number}"
     globals_config_path = "configs/globals.py"
     simulation_config_path = f"configs/simulation_{simulation_number}.py"
