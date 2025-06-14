@@ -1,6 +1,8 @@
 non_neurons_cmap = 'hot_r'
 neurons_cmap = 'hot_r'
 inner_border_cmap = 'winter'
+base_cmap = 'coolwarm'
+
 
 
 ### phyisical constants ###

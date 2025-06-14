@@ -2,6 +2,7 @@ from cell import Cell
 import neuron_initiation 
 from configs.imports import *
 from matplotlib.patches import FancyBboxPatch
+from matplotlib.colors import LinearSegmentedColormap
 
 class Tissue:
     def __init__(self, globals_config_path, simulation_config_path, morphology_config_path):
@@ -264,33 +265,71 @@ class Tissue:
             plt.show()
 
     def _coloring_by_value(self, center_value, get_func, ax, area=True, colorbar=True, factor=2):
-        log_center = np.log10(center_value)
-        log_min = np.log10(center_value / factor) if center_value / factor > 0 else log_center - 1
-        log_max = np.log10(center_value * factor) if center_value * factor > 0 else log_center + 1
+        min_val = np.max(center_value / factor, 0)
+        max_val = center_value * factor
 
         # Use TwoSlopeNorm to center the colormap on center_value
-        norm = colors.TwoSlopeNorm(vmin=log_min, vcenter=log_center, vmax=log_max)
+        norm = colors.TwoSlopeNorm(vmin=min_val, vcenter=center_value, vmax=max_val)
 
+        base_cmap = cm.get_cmap(self.base_cmap)
+        # Create cropped version to compress bright center
+        darker_cmap = LinearSegmentedColormap.from_list(
+            'darker_coolwarm',
+            base_cmap(np.linspace(0.2, 0.8, 256))
+        )
+        
         for cell in self.cells:
             node_keys = cell.get_nodes()
             node_positions = [self.graph.nodes[key]['pos'] for key in node_keys]
-            color_map = self.neurons_cmap if cell.is_neuron() else self.non_neurons_cmap
-            color_map = self.inner_border_cmap if cell.inner_border[0] else color_map
+            
+            color_map = self.inner_border_cmap if cell.inner_border[0] else darker_cmap
 
             val = get_func(cell)
-            log_val = np.log10(max(val, 1e-6))
+            val = max(val, 1e-6)
+            stretched_val = center_value + np.sign(val - center_value) * abs(val - center_value)**2.0  # or 2.5
 
-            color = cm.get_cmap(color_map)(norm(log_val))
+
+            color = cm.get_cmap(color_map)(norm(stretched_val))
             ax.fill(*zip(*node_positions), color=color, alpha=0.5)
 
         # add colorbar
         if colorbar:
             param = 'Area' if area else 'Height'
-            sm = cm.ScalarMappable(cmap=cm.get_cmap(self.neurons_cmap), norm=norm)
+            sm = cm.ScalarMappable(cmap=color_map, norm=norm)
             sm.set_array([])
             cbar = plt.colorbar(sm, ax=ax, orientation='vertical', pad=0.02, location='left')
-            cbar.set_label(f'{param} (log scale)', rotation=90, labelpad=10)
+            cbar.set_label(f'{param}', rotation=90, labelpad=10)
             cbar.ax.tick_params(labelsize=8)
+
+    # # old coloring method using log scale
+    # def _coloring_by_value(self, center_value, get_func, ax, area=True, colorbar=True, factor=2):
+    #     log_center = np.log10(center_value)
+    #     log_min = np.log10(center_value / factor) if center_value / factor > 0 else log_center - 1
+    #     log_max = np.log10(center_value * factor) if center_value * factor > 0 else log_center + 1
+
+    #     # Use TwoSlopeNorm to center the colormap on center_value
+    #     norm = colors.TwoSlopeNorm(vmin=log_min, vcenter=log_center, vmax=log_max)
+
+    #     for cell in self.cells:
+    #         node_keys = cell.get_nodes()
+    #         node_positions = [self.graph.nodes[key]['pos'] for key in node_keys]
+    #         color_map = self.neurons_cmap if cell.is_neuron() else self.non_neurons_cmap
+    #         color_map = self.inner_border_cmap if cell.inner_border[0] else color_map
+
+    #         val = get_func(cell)
+    #         log_val = np.log10(max(val, 1e-6))
+
+    #         color = cm.get_cmap(color_map)(norm(log_val))
+    #         ax.fill(*zip(*node_positions), color=color, alpha=0.5)
+
+    #     # add colorbar
+    #     if colorbar:
+    #         param = 'Area' if area else 'Height'
+    #         sm = cm.ScalarMappable(cmap=cm.get_cmap(self.neurons_cmap), norm=norm)
+    #         sm.set_array([])
+    #         cbar = plt.colorbar(sm, ax=ax, orientation='vertical', pad=0.02, location='left')
+    #         cbar.set_label(f'{param} (log scale)', rotation=90, labelpad=10)
+    #         cbar.ax.tick_params(labelsize=8)
 
 
     def plot_heights_distribution(self, ax=None, bins=30, log_scale=True):
