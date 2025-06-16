@@ -2,6 +2,7 @@
 from configs.run_config import *
 import tissue
 from configs.imports import *
+from neuron_initiation import get_frame_bounds_from_index
 
 # plotting function
 def plot_timestamp(T: tissue, t: int, title, energy, total_area, window_area, position, velocity, time_limit,
@@ -16,20 +17,21 @@ def plot_timestamp(T: tissue, t: int, title, energy, total_area, window_area, po
 
     # Velocity profile (top right)
     ax2 = fig.add_subplot(gs[0, 1])
-    ax2.set_title("Velocity Profile")
-    ax2.set_xlabel("X Position")
-    ax2.set_ylabel("X Velocity")
-    sns.scatterplot(x=position, y=velocity, ax=ax2, color='tab:green', s=10)
-    sns.lineplot(x=position, y=velocity, ax=ax2, color='tab:green', linewidth=0.1)
-    ax2.set_xlim(0, T.num_cols * 1.5 * T.config_dict['cell_radius'] + 1)
-    ax2.set_ylim(-1.5, 1.5)
+    plot_velocity_profile(ax2, position, velocity, x_lim=T.num_cols * 1.5 * T.config_dict['cell_radius'] + 1)
+
 
     # add 2 light gray rectangles to indicate the area of the windows
     total_width = T.num_cols * 1.5 * T.config_dict['cell_radius']
-    x_middle = total_width / 2
     marginal_width = T.config_dict['num_layers'] * 1.5 * T.config_dict['cell_radius']
-    ax2.add_patch(patches.Rectangle((marginal_width, -1.5), x_middle - 2*marginal_width, 10, color='lightgray', alpha=0.5))
-    ax2.add_patch(patches.Rectangle((x_middle+marginal_width, -1.5), x_middle - 2*marginal_width, 10, color='lightgray', alpha=0.5))
+    window_width = (total_width / 2) - (2 * marginal_width)
+    for frame_index in range(T.num_frames):
+        x_start, _ = get_frame_bounds_from_index(frame_index, T.num_cols, T.num_frames)
+        window_start = x_start * 1.5 * T.config_dict['cell_radius']
+        ax2.add_patch(patches.Rectangle((window_start + marginal_width, -1.5),
+                                          window_width, 
+                                          10, 
+                                          color='lightgray', 
+                                          alpha=0.5))
 
     # Energy + Area % over time (bottom right)
     ax3 = fig.add_subplot(gs[1, 1])
@@ -38,14 +40,14 @@ def plot_timestamp(T: tissue, t: int, title, energy, total_area, window_area, po
     ax3.set_xlabel("Time step")
     ax3.set_ylabel("Total Energy", color='tab:red')
     ax3.set_xlim(0, time_limit)
-    ax3.set_ylim(energy[0] * 0.9, energy[0] * 3)
+    ax3.set_ylim(energy[0] * 0.3, energy[0] * 1.1)
     ax3.tick_params(axis='y', labelcolor='tab:red')
     ax3.grid(True)
 
     ax4 = ax3.twinx()
     ax4.plot(range(t + 1), window_area, color='tab:blue')
     ax4.set_ylabel("% Area", color='tab:blue')
-    ax4.set_ylim(window_area[0]*0.9, window_area[0]*3) 
+    ax4.set_ylim(window_area[0] * 0.3, window_area[0]*3) 
     ax4.set_xlim(0, time_limit)
     ax4.tick_params(axis='y', labelcolor='tab:blue')
 
@@ -73,6 +75,22 @@ def plot_timestamp(T: tissue, t: int, title, energy, total_area, window_area, po
 
     plt.close(fig)
 
+def plot_velocity_profile(ax, position, velocity, x_lim = None, y_lim = None):
+    ax.set_title("Velocity Profile")
+    ax.set_xlabel("X Position")
+    ax.set_ylabel("X Velocity")
+    sns.scatterplot(x=position, y=velocity, ax=ax, color='tab:green', s=10)
+    sns.lineplot(x=position, y=velocity, ax=ax, color='tab:green', linewidth=0.1)
+
+    if x_lim is not None:
+        ax.set_xlim(0, x_lim)
+
+    if y_lim is not None:
+        ax.set_ylim(-y_lim, y_lim)
+    else:
+        ax.set_ylim(-1.5, 1.5)
+    
+
 
 def plot_vx_border(simulation_name: str, vx_series: list[float]):
     """
@@ -89,6 +107,24 @@ def plot_vx_border(simulation_name: str, vx_series: list[float]):
     output_path = os.path.join('results', simulation_name, "vx_inner_border_plot.png")
     plt.savefig(output_path)
     plt.close()
+
+def plot_vx_vs_time(simulation_name: str, vx_series: list[float], y_label:str = "X Axis Velocity"):
+    """
+    Plot x-velocity over time and save to file.
+    """
+    plt.figure(figsize=(6, 4))
+    plt.plot(vx_series, color='tab:orange')
+    plt.xlabel("Time step")
+    plt.ylabel(y_label)
+    plt.title(f"{y_label} Over Time")
+    plt.grid(True)
+    plt.tight_layout()
+
+    fig_label = y_label.replace(" ", "_")
+    output_path = os.path.join('results', simulation_name, f"{fig_label}_plot.png")
+    plt.savefig(output_path)
+    plt.close()
+
 
 # add some pertubations to check plotting
 def add_pertubation(T:tissue.Tissue):
@@ -151,6 +187,8 @@ def run_simulation(T:tissue.Tissue,                  # tissue object
     #initialize a list of x velocities of the inner border layer
     vx_border_layer_series = []
 
+    max_velocities = []
+
     # iterate overthe graph
     for t in range(0, time_limit):
         print(f"\n---------------------Time {t}---------------------")
@@ -161,10 +199,11 @@ def run_simulation(T:tissue.Tissue,                  # tissue object
         # compute velocity profile
         position, velocity = T.calculate_velocity_profile(bin_length=velocity_profile_position_bin)
         velocity_profiles.append((position, velocity))
-
+        max_velocities.append(max(abs(velocity)))
         # calculate mean velocity of inner bound layer
         vx_border = T.compute_inner_border_x_velocity_middle_band()
         vx_border_layer_series.append(vx_border)
+        
 
         # plot timestamp
         if t % save_frame_interval == 0:
@@ -190,7 +229,8 @@ def run_simulation(T:tissue.Tissue,                  # tissue object
            'areaL': np.array(area_percs),
            'velocity_profile_position': positions,
            'velocity_profile_velocity': velocities,
-           'vx_inner_border' : vx_inner_border
+           'vx_inner_border' : vx_inner_border,
+           'max_velocities': max_velocities
            }
 
     
@@ -198,7 +238,7 @@ def run_simulation(T:tissue.Tissue,                  # tissue object
     with open(os.path.join(output_dir, "..", "results.pkl"), 'wb') as f:
         pickle.dump(res, f)
 
-    plot_vx_border(simulation_name= os.path.basename(os.path.dirname(output_dir)), vx_series=vx_inner_border)
+    
 
     return res
 
@@ -295,7 +335,6 @@ def convergence_plots():
 
 
 
-
 def simulation(time_limit, save_frame_interval, dt, globals_config_path, simulation_config_path, morphology_config_path, simulation_name, velocity_profile_position_bin, pertubation=False, show_velocity_field=False, rm_frames = True):
 
     # sanity check orints
@@ -330,6 +369,22 @@ def simulation(time_limit, save_frame_interval, dt, globals_config_path, simulat
     
     # create video
     replay_simulation(frames_dir=os.path.join(output_dir, "frames"), simulation_name=simulation_name)
+
+    # plots:
+    plot_vx_vs_time(simulation_name, vx_series=result_dict["vx_inner_border"], y_label="Inner Border Mean Abs vx")
+    max_velocities = result_dict["max_velocities"]
+    plot_vx_vs_time(simulation_name, vx_series=max_velocities, y_label="Max Abs vx")
+
+    fig, ax = plt.subplots()
+    max_time_point = np.argmax(max_velocities)
+    max_profile_position = result_dict["velocity_profile_position"][max_time_point]
+    max_profile_velocity = result_dict["velocity_profile_velocity"][max_time_point]
+    plot_velocity_profile(ax, max_profile_position, max_profile_velocity, 
+                          x_lim=T.num_cols * 1.5 * T.config_dict['cell_radius'] + 1, 
+                          y_lim=np.max(max_profile_velocity)+0.5)
+    plot_outpath = os.path.join(output_dir,"max_velocity_profile.png")
+    fig.savefig(plot_outpath, dpi=300, bbox_inches='tight')
+    
     
     # move the last figure create to simulation dir and remove frame dir if specified
     shutil.copyfile(os.path.join(output_dir, "frames", f"tissue_frame_{(time_limit-save_frame_interval)}.png"), os.path.join(output_dir,"last_frame.png"))
@@ -347,11 +402,11 @@ def simulation(time_limit, save_frame_interval, dt, globals_config_path, simulat
 
 if __name__ == "__main__":
 
-    time_limit = 500
+    time_limit = 20
     save_frame_interval = 10
     dt = 0.1
     velocity_profile_position_bin = 5
-    simulation_number = 2
+    simulation_number = 1
     simulation_name = f"simulation_{simulation_number}"
     globals_config_path = "configs/globals.py"
     simulation_config_path = f"configs/simulation_{simulation_number}.py"

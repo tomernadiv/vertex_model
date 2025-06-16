@@ -290,7 +290,7 @@ class Tissue:
 
 
             color = cm.get_cmap(color_map)(norm(stretched_val))
-            ax.fill(*zip(*node_positions), color=color, alpha=0.5)
+            ax.fill(*zip(*node_positions), color=color, alpha=0.8)
 
         # add colorbar
         if colorbar:
@@ -680,8 +680,35 @@ class Tissue:
             spring_energy = 0.5 * spring_constant * (dist - rest_length)**2
             total_energy += spring_energy
         return total_energy
+    
+    def _define_vertical_window(self,  num_vertical_rows=0.2):
+        if self.num_vertical_rows:
+            num_vertical_rows = self.num_vertical_rows
+        
+        if num_vertical_rows != 1.0:
+            # Compute number of rows to include
+            num_rows_in_window = int(self.num_rows * num_vertical_rows)
+            row_mid = self.num_rows // 2
+            row_lower = row_mid - (num_rows_in_window // 2)
+            row_upper = row_mid + (num_rows_in_window + 1) // 2 - 1  # inclusive upper bound
 
-    def calculate_velocity_profile(self, bin_length=None, num_rows=0.2):
+            # Clamp to valid range
+            row_lower = max(0, row_lower)
+            row_upper = min(self.num_rows - 1, row_upper)
+            # num_vertical_rows = int(self.num_rows * num_vertical_rows)
+            # total_height = y_max - y_min
+            # row_height = total_height / self.num_rows
+            # window_height = num_vertical_rows * row_height
+            # y_mid = (y_min + y_max) / 2
+            # y_lower = y_mid - window_height / 2
+            # y_upper = y_mid + window_height / 2
+        else:
+            row_lower, row_upper = 0, (self.num_rows - 1)
+
+        return row_lower, row_upper
+        
+
+    def calculate_velocity_profile(self, bin_length=None):
         """
         Calculate the velocity profile of the tissue.
         Divide the x-axis into bins and compute the average velocity in each bin.
@@ -690,30 +717,16 @@ class Tissue:
         """
         x_velocities, x_positions = [], []
         
-        # Collect y positions to find row bounds
-        all_y = [self.graph.nodes[node]['pos'][1] for node in self.graph.nodes]
-        y_min, y_max = min(all_y), max(all_y)
-
-        # Define vertical window if num_rows specified
-        if num_rows != 'all':
-            if isinstance(num_rows, float):
-                num_rows = int(self.num_rows * num_rows)
-            total_height = y_max - y_min
-            row_height = total_height / self.num_rows
-            window_height = num_rows * row_height
-            y_mid = (y_min + y_max) / 2
-            y_lower = y_mid - window_height / 2
-            y_upper = y_mid + window_height / 2
-        else:
-            y_lower, y_upper = y_min, y_max
+        
+        row_lower, row_upper = self._define_vertical_window()
 
         # Get x coords and velocities for nodes in middle rows
         for node in self.graph.nodes:
-            x, y = self.graph.nodes[node]['pos']
-            if y_lower <= y <= y_upper:
+            temp_row = self.graph.nodes[node]['row']
+            if row_lower <= temp_row <= row_upper:
                 vx = self.mu * self.graph.nodes[node]['force'][0]
                 x_velocities.append(vx)
-                x_positions.append(x)
+                x_positions.append(self.graph.nodes[node]['pos'][0]) # add x positions 
 
         # Sort
         sorted_indices = np.argsort(x_positions)
@@ -739,10 +752,10 @@ class Tissue:
     def compute_inner_border_x_velocity_middle_band(self):
         """
         Compute the average x-axis velocity of inner-border cells 
-        that lie within the middle third of the tissue height (y-axis).
+        that lie within the vertical window (y-axis).
         """
-        lower_bound = self.num_rows // 3
-        upper_bound = 2 * self.num_rows // 3
+        lower_bound, upper_bound = self._define_vertical_window()
+
 
         x_velocities = []
 
