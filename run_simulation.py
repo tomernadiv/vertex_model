@@ -187,7 +187,7 @@ def run_simulation(T:tissue.Tissue,                  # tissue object
     velocities = [np.array(vp[1]) for vp in velocity_profiles]
     vx_inner_border = np.array(vx_border_layer_series)
     res = {'energy': np.array(energies),
-           'areaL': np.array(area_percs),
+           'area': np.array(area_percs),
            'velocity_profile_position': positions,
            'velocity_profile_velocity': velocities,
            'vx_inner_border' : vx_inner_border
@@ -227,9 +227,9 @@ def replay_simulation(frames_dir, simulation_name: str, fps: int = 2):
         fig, update, frames=len(frame_files), interval=1000/fps, blit=True, repeat=False
     )
 
-    output_file = os.path.join('results', simulation_name, "simulation.mp4")
+    output_file = os.path.join('results', simulation_name, "simulation.gif")
     plt.tight_layout()
-    ani.save(output_file, writer='ffmpeg', fps=fps)
+    ani.save(output_file, writer=PillowWriter(fps=fps))
     plt.close(fig)
 
 def plot_energy_graph(simulation_name, total_energy, save_graph:bool = False):
@@ -247,56 +247,9 @@ def plot_energy_graph(simulation_name, total_energy, save_graph:bool = False):
         plt.show()
 
 
-def convergence_plots():
-    dts = [i for i in range(6,7)]
-    max_time_limit = 10**6
-    time_limits = [min(int(10**(i+2)),max_time_limit) for i in range(1,len(dts)+1)]
-    tissue_size = 10
-    results = {'amps': {},
-               'energy': {}, 
-               'area': {}}
-    
-
-    print("Simulation Iterations:")
-    for i in range(len(dts)):
-        dt = 10 ** -dts[i]
-        time_limit = time_limits[i]
-        print(f"dt: {dt}, time_limit: {time_limit}")
-
-    # iterate on all dt values
-    for i in range(len(dts)):
-        dt = 10 ** -dts[i]
-        time_limit = 10**6
-        save_frame_interval = int(time_limit // 100) # save 100 frames
-    
-        # run simulation
-        energy_per_frame, all_amplitdes, all_area_percs = simulation(dt, tissue_size, save_frame_interval, time_limit)
-        results['amps'][i+1] = all_amplitdes
-        results['energy'][i+1] = energy_per_frame
-        results['area'][i+1] = all_area_percs
-
-    # save the results dict using pickle
-    with open('results2.pkl', 'wb') as f:
-        pickle.dump(results, f)
-
-    # plot average convergence amplitude as function of dt
-    means = [np.mean(results['amps'][i]) for i in dts]
-    stds = [np.std(results['amps'][i]) for i in dts]
-    dts = [10 ** -i for i in dts]
-    fig, ax = plt.subplots(figsize=(10, 5))
-    plt.plot(dts, means, 'o-')
-    plt.fill_between(dts, np.array(means) - np.array(stds), np.array(means) + np.array(stds), alpha=0.2)
-    ax.set_xscale('log')
-    ax.set_xlabel("dt")
-    ax.set_ylabel("Amplitude")
-    ax.set_title("Average (and STD) of Energy Amplitude as Function of dt")
-    ax.grid(True)
-    plt.savefig('amplitude_plot2.png')
 
 
-
-
-def simulation(time_limit, save_frame_interval, dt, globals_config_path, simulation_config_path, morphology_config_path, simulation_name, velocity_profile_position_bin, pertubation=False, show_velocity_field=False, rm_frames = True):
+def simulation(time_limit, save_frame_interval, dt, globals_config_path, simulation_config_path, morphology_config_path, simulation_name, velocity_profile_position_bin, pertubation=False, show_velocity_field=False, rm_frames = True, const_changes=[], num_layers=10):
 
     # sanity check orints
     print(f"Simulation Parameters: {simulation_name}")
@@ -305,17 +258,29 @@ def simulation(time_limit, save_frame_interval, dt, globals_config_path, simulat
     print(f"save_frame_interval: {save_frame_interval}")
 
 
-    T = tissue.Tissue(globals_config_path = globals_config_path, simulation_config_path = simulation_config_path, morphology_config_path = morphology_config_path)
+    T = tissue.Tissue(globals_config_path = globals_config_path, simulation_config_path = simulation_config_path, morphology_config_path = morphology_config_path, num_layers=num_layers)
+
+    # print shrinking and expansion constants
+    print(f"shrinking_const: {T.config_dict['shrinking_const']}")
+    print(f"expansion_const: {T.config_dict['expansion_const']}")
 
 
     # add pertubations if needed
     if pertubation:
         add_pertubation(T)
+
+    # force changes for constants
+    for (k,v) in const_changes:
+        T.change_const_in_config_dict(k, v) # change constants in the config dict
+
+    # print updated shrinking and expansion constants
+    print(f"Updated shrinking_const: {T.config_dict['shrinking_const']}")
+    print(f"Updated expansion_const: {T.config_dict['expansion_const']}")
+
     
     # check if saving folder exists, if it is, erase it
     output_dir = os.path.join('results', simulation_name)
     if os.path.exists(output_dir):
-        import shutil
         shutil.rmtree(output_dir)
     os.makedirs(output_dir)
 
@@ -328,11 +293,21 @@ def simulation(time_limit, save_frame_interval, dt, globals_config_path, simulat
     title = runpy.run_path(simulation_config_path)["description"]
     result_dict = run_simulation(T=T, time_limit=time_limit, title = title,  velocity_profile_position_bin=velocity_profile_position_bin, output_dir=output_dir, dt=dt, save_frame_interval=save_frame_interval, show_velocity_field=show_velocity_field)
     
+    # save the result dict
+    with open(os.path.join(output_dir, "results.pkl"), 'wb') as f:
+        pickle.dump(result_dict, f)
+
     # create video
-    replay_simulation(frames_dir=os.path.join(output_dir, "frames"), simulation_name=simulation_name)
+    replay_simulation(frames_dir=os.path.join(output_dir, "frames"), simulation_name=simulation_name, fps=5)
     
     # move the last figure create to simulation dir and remove frame dir if specified
-    shutil.copyfile(os.path.join(output_dir, "frames", f"tissue_frame_{(time_limit-save_frame_interval)}.png"), os.path.join(output_dir,"last_frame.png"))
+    try:
+        shutil.copyfile(
+            os.path.join(output_dir, "frames", f"tissue_frame_{(time_limit - save_frame_interval)}.png"),
+            os.path.join(output_dir, "last_frame.png")
+        )
+    except Exception as e:
+        print(f"Failed to copy last frame: {e}")
 
     if rm_frames:
         shutil.rmtree(os.path.join(output_dir, "frames"))
@@ -345,21 +320,181 @@ def simulation(time_limit, save_frame_interval, dt, globals_config_path, simulat
 
 
 
-if __name__ == "__main__":
+def find_coefficient_experiment(simulation_number):
+    if simulation_number == 1:
+        target_csv_path = r'/home/labs/bnramot/tomerna/projects/vertex_model/experiments/find_coefficient/exp1.csv'
+        target_key = 'expansion_const'
+        target_values = np.linspace(1, 5, 10)
 
-    time_limit = 500
-    save_frame_interval = 10
-    dt = 0.1
+    elif simulation_number == 2:
+        target_csv_path = r'/home/labs/bnramot/tomerna/projects/vertex_model/experiments/find_coefficient/exp2.csv'
+        target_key = 'push_out_force_strength'
+        target_values = np.linspace(1, 10, 10)
+
+    elif simulation_number == 3:
+        target_csv_path = r'/home/labs/bnramot/tomerna/projects/vertex_model/experiments/find_coefficient/exp3.csv'
+        target_key = 'shrinking_const'
+        target_values = np.linspace(0.1, 1, 10)
+
+    # add header to the csv file if it does not exist
+    with open(target_csv_path, 'w') as f:
+        f.write("coef,final_area\n")
+    
+    # globals
+    time_limit = 500          
+    save_frame_interval = 100  
+    dt = 0.05
     velocity_profile_position_bin = 5
-    simulation_number = 2
-    simulation_name = f"simulation_{simulation_number}"
     globals_config_path = "configs/globals.py"
     simulation_config_path = f"configs/simulation_{simulation_number}.py"
     morphology_config_path = "configs/morphology_config.py"
     show_velocity_field = True
 
-    simulation(time_limit, save_frame_interval, dt, globals_config_path, simulation_config_path, morphology_config_path, simulation_name, velocity_profile_position_bin, pertubation=False, show_velocity_field=show_velocity_field, rm_frames = True)
+    # run the simulations for each coefficient value
+    for i, v in enumerate(target_values):
+        # change the config dict
+        const_changes = [(target_key, v)]
 
+        simulation_name = f"simulation_{simulation_number}_coeff={v}"
+        print(f"Running simulation {i+1}/{len(target_values)} with {target_key}={v}")
+        
+        # run the simulation    
+        simulation(time_limit, save_frame_interval, dt, globals_config_path, simulation_config_path, morphology_config_path, simulation_name, velocity_profile_position_bin, pertubation=False, show_velocity_field=show_velocity_field, rm_frames = True, const_changes=const_changes)
+
+        # get the results pkl file
+        results_path = os.path.join('results', simulation_name, "results.pkl")
+        if not os.path.exists(results_path):
+            print(f"Results file not found for {simulation_name}. Skipping.")
+            continue
+        with open(results_path, 'rb') as f:
+            results = pickle.load(f)
+
+        final_area_value = results['area'][-1]
+
+        # add to the csv file a line (v, final_area_value)
+        with open(target_csv_path, 'a') as f:
+            f.write(f"{v},{final_area_value}\n")
+            print(f"Added {v},{final_area_value} to {target_csv_path}")
+
+
+    # open the csv file, create a plot of the final area vs coefficient, try to fit a line and write the equation on the plot
+    df = pd.read_csv(target_csv_path)
+    sns.set_theme(style="whitegrid")
+    plt.figure(figsize=(10, 6))
+    sns.scatterplot(data=df, x='coef', y='final_area', color='tab:blue')
+    sns.lineplot(data=df, x='coef', y='final_area', color='tab:orange', estimator=None)
+    plt.xlabel(target_key)
+    plt.ylabel('Final Area (%)')
+    plt.title(f"Final Area vs {target_key} (Simulation {simulation_number})")
+    plt.grid(True)
+    # fit a line to the data
+    slope, intercept, r_value, p_value, std_err = linregress(df['coef'], df['final_area'])
+    plt.plot(df['coef'], slope * df['coef'] + intercept, color='tab:red', label=f"Fit: y={slope:.2f}x+{intercept:.2f}")
+    plt.legend()
+    plt.tight_layout()
+    # save the plot
+    plot_path = os.path.join(r'/home/labs/bnramot/tomerna/projects/vertex_model/experiments/find_coefficient/', f"simulation_{simulation_number}_coefficient_fit.png")
+    plt.savefig(plot_path)
+    print(f"Saved plot to {plot_path}")
+
+
+
+def final_area_vs_num_layers(simulation_number):
+    folder_path = r'/home/labs/bnramot/tomerna/projects/vertex_model/experiments/num_layers/'
+    target_values = np.linspace(1, 10, 10, dtype=int)
+
+    os.makedirs(folder_path, exist_ok=True)
+    if simulation_number == 1:
+        target_csv_path = r'/home/labs/bnramot/tomerna/projects/vertex_model/experiments/num_layers/exp1.csv'
+
+    elif simulation_number == 2:
+        target_csv_path = r'/home/labs/bnramot/tomerna/projects/vertex_model/experiments/num_layers/exp2.csv'
+
+    elif simulation_number == 3:
+        target_csv_path = r'/home/labs/bnramot/tomerna/projects/vertex_model/experiments/num_layers/exp3.csv'
+
+    # add header to the csv file if it does not exist
+    with open(target_csv_path, 'w') as f:
+        f.write("num_layers, final_area\n")
+    
+    # globals
+    time_limit = 500          
+    save_frame_interval = 100  
+    dt = 0.05
+    velocity_profile_position_bin = 5
+    globals_config_path = "configs/globals.py"
+    simulation_config_path = f"configs/simulation_{simulation_number}.py"
+    morphology_config_path = "configs/morphology_config.py"
+    show_velocity_field = True
+
+    # run the simulations for each coefficient value
+    for i, v in enumerate(target_values):
+        # change the config dict
+        simulation_name = f"simulation_{simulation_number}_num_layrs={v}"
+        print(f"Running simulation {i+1}/{len(target_values)} with 'num_layers'={v}")
+        
+        # run the simulation    
+        simulation(time_limit, save_frame_interval, dt, globals_config_path, simulation_config_path, morphology_config_path, simulation_name, velocity_profile_position_bin, pertubation=False, show_velocity_field=show_velocity_field, rm_frames = True, num_layers=v)
+
+        # get the results pkl file
+        results_path = os.path.join('results', simulation_name, "results.pkl")
+        if not os.path.exists(results_path):
+            print(f"Results file not found for {simulation_name}. Skipping.")
+            continue
+        with open(results_path, 'rb') as f:
+            results = pickle.load(f)
+
+        final_area_value = results['area'][-1]
+
+        # add to the csv file a line (v, final_area_value)
+        with open(target_csv_path, 'a') as f:
+            f.write(f"{v},{final_area_value}\n")
+            print(f"Added {v},{final_area_value} to {target_csv_path}")
+
+
+    # open the csv file, create a plot of the final area vs coefficient, try to fit a line and write the equation on the plot
+    df = pd.read_csv(target_csv_path)
+    sns.set_theme(style="whitegrid")
+    plt.figure(figsize=(10, 6))
+    sns.scatterplot(data=df, x='num layers', y='final_area', color='tab:blue')
+    sns.lineplot(data=df, x='num layers', y='final_area', color='tab:orange', estimator=None)
+    plt.xlabel('num layers')
+    plt.ylabel('Final Area (%)')
+    plt.title(f"Final Area vs num layers (Simulation {simulation_number})")
+    plt.grid(True)
+    # fit a line to the data
+    slope, intercept, r_value, p_value, std_err = linregress(df['num layers'], df['final_area'])
+    plt.plot(df['num layers'], slope * df['num layers'] + intercept, color='tab:red', label=f"Fit: y={slope:.2f}x+{intercept:.2f}")
+    plt.legend()
+    plt.tight_layout()
+    # save the plot
+    plot_path = os.path.join(r'/home/labs/bnramot/tomerna/projects/vertex_model/experiments/num_layers/', f"simulation_{simulation_number}_num_layers_fit.png")
+    plt.savefig(plot_path)
+    print(f"Saved plot to {plot_path}")
+
+
+
+
+if __name__ == "__main__":
+
+    # time_limit = 500
+    # save_frame_interval = 10
+    # dt = 0.1
+    # velocity_profile_position_bin = 5
+    # simulation_number = 2
+    # simulation_name = f"simulation_{simulation_number}"
+    # globals_config_path = "configs/globals.py"
+    # simulation_config_path = f"configs/simulation_{simulation_number}.py"
+    # morphology_config_path = "configs/morphology_config.py"
+    # show_velocity_field = True
+
+    # simulation(time_limit, save_frame_interval, dt, globals_config_path, simulation_config_path, morphology_config_path, simulation_name, velocity_profile_position_bin, pertubation=False, show_velocity_field=show_velocity_field, rm_frames = True)
+
+
+    simulation_number = sys.argv[1] if len(sys.argv) > 1 else 1
+    simulation_number = int(simulation_number)
+    print(f"Running find_coefficient_experiment for simulation {simulation_number}")
+    final_area_vs_num_layers(simulation_number)
 
 
     

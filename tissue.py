@@ -5,7 +5,8 @@ from matplotlib.patches import FancyBboxPatch
 from matplotlib.colors import LinearSegmentedColormap
 
 class Tissue:
-    def __init__(self, globals_config_path, simulation_config_path, morphology_config_path):
+    def __init__(self, globals_config_path, simulation_config_path, morphology_config_path, num_layers=10):
+        self.num_layers = num_layers ############################
         self._init_simulation_properties(globals_config_path, simulation_config_path, morphology_config_path)
         self.num_cells = self.num_rows * self.num_cols
         self.graph = nx.Graph()
@@ -14,6 +15,7 @@ class Tissue:
         self.initial_height = self.cells[0].get_height()
         self.initial_area = self.cells[0].get_area()
         self.time_step = 1 
+        self.config_dict['num_layers'] = self.num_layers
 
     def zero_time_step(self):
         """
@@ -111,7 +113,7 @@ class Tissue:
 
         # initiate cell sizes parameters
         cell_radius = combined_namespace['X_AXIS_LENGTH'] / (1.5 * combined_namespace['num_cols'])  # radius of a cell in the hexagonal grid
-        cell_volume = 6 * 0.5 * ((cell_radius ** 2) * math.sqrt(3) / 2)                   # so that initial height will be 1
+        cell_volume = 6 * 0.5 * ((cell_radius ** 2) * math.sqrt(3) / 2)                             # so that initial height will be 1
         cell_initial_vertex_length = cell_radius
         cell_initial_surface_area = 6 * 0.5 * ((cell_radius ** 2) * math.sqrt(3) / 2)
         cell_initial_height = cell_volume / cell_initial_surface_area
@@ -469,7 +471,8 @@ class Tissue:
         dx, dy, dist = self._get_distances(v1,v2)
         # Avoid division by zero
         if dist < 1e-3:
-            raise RuntimeError(f"distance of nodes: {v1}, {v2} is almost zero!")
+            # raise RuntimeError(f"distance of nodes: {v1}, {v2} is almost zero!")
+            dist = 1e-3
         
         # get spring constant accorfing to edge type
         edge_type = self._get_edge_type(v1, v2)
@@ -490,10 +493,26 @@ class Tissue:
 
 
     def _get_rest_length(self, v1, v2, edge_type):
+
+        # neuron
         if self._is_nueron_edge(v1, v2):
-            rest_length = getattr(self,f"{edge_type}_rest_length")
+            if edge_type == "internal":
+                rest_length = 2 * self.config_dict['cell_initial_vertex_length'] * self.config_dict['shrinking_const']
+            elif edge_type == "boundary":
+                rest_length = self.config_dict['cell_initial_vertex_length']
+            elif edge_type == "marginal":
+                rest_length = self.config_dict['cell_initial_vertex_length'] * self.config_dict['shrinking_const']
+
+        # no neuron
         else:
-            rest_length = getattr(self,f"non_neuron_{edge_type}_rest_length")
+            if edge_type == 'internal':
+                rest_length = 2 * self.config_dict['cell_initial_vertex_length'] * self.config_dict['expansion_const']
+            elif edge_type == 'boundary':
+                rest_length = self.config_dict['cell_initial_vertex_length']
+            elif edge_type == 'marginal':
+                rest_length = self.config_dict['cell_initial_vertex_length'] * self.config_dict['expansion_const']
+
+                
         return rest_length
     
     def _f_line_tension(self, v1, v2):
@@ -510,7 +529,8 @@ class Tissue:
 
             # Avoid division by zero
             if dist == 0:
-                raise RuntimeError(f"distance of nodes: {v1}, {v2} is zero!")
+                dist = 1e-3
+                # raise RuntimeError(f"distance of nodes: {v1}, {v2} is zero!")
 
             unit_vector = np.array([dx / dist, dy / dist])
             force_vector = self.line_tension_constant * unit_vector
@@ -568,16 +588,16 @@ class Tissue:
 
             # constant
             if self.push_out_decay_type == 'constant':
-                push_force = vector * self.push_out_force_strength
+                push_force = vector * self.config_dict['push_out_force_strength']
             
             # linear
             elif self.push_out_decay_type == 'linear':
                 decay_ratio = max(0, 1 - self.time_step * self.push_out_decay_constant_lin)
-                push_force = vector * self.push_out_force_strength * decay_ratio
+                push_force = vector * self.config_dict['push_out_force_strength'] * decay_ratio
 
             # exponential
             elif self.push_out_decay_type == 'exp':
-                push_force = vector * self.push_out_force_strength  * np.exp(-self.time_step * self.push_out_decay_constant_exp)
+                push_force = vector * self.config_dict['push_out_force_strength']  * np.exp(-self.time_step * self.push_out_decay_constant_exp)
 
 
             else:
@@ -763,5 +783,19 @@ class Tissue:
             return np.mean(x_velocities)
         else:
             return np.nan
+        
+
+    def change_const_in_config_dict(self, key, value):
+        """
+        Force a change in the config dictionary.
+        This is useful for changing constants during the simulation.
+        """
+        if key in self.config_dict:
+            self.config_dict[key] = value # overwrite the value in the config_dict
+            setattr(self, key, value)
+        else:
+            raise KeyError(f"Key '{key}' not found in config_dict. Available keys: {list(self.config_dict.keys())}")
+        
+
 
 

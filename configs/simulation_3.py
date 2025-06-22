@@ -6,7 +6,7 @@
 description = "Neurons Shrink"
 forces = ['spring']
 mu = 1                               # friction coefficient
-shrinking_const = 0.5
+shrinking_const = 0.2
 expansion_const = 1
 inner_border_layers = 1
 push_out_force_strength = 0.0
