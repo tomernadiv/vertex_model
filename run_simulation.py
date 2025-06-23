@@ -193,6 +193,12 @@ def run_simulation(T:tissue.Tissue,                  # tissue object
     for t in range(0, time_limit):
         print(f"\n---------------------Time {t}---------------------")
 
+        # --- Apply cut only once at t == 10 ---
+        if t == 10:
+            cut_x = T.num_cols // 4  # or any specific col you want
+            row_start, row_end = 0, T.num_rows
+            T.apply_vertical_cut(cut_x=cut_x, row_start=row_start, row_end=row_end)
+
         # compute velocities
         T.compute_all_velocities()
 
@@ -402,11 +408,11 @@ def simulation(time_limit, save_frame_interval, dt, globals_config_path, simulat
 
 if __name__ == "__main__":
 
-    time_limit = 20
+    time_limit = 50
     save_frame_interval = 10
     dt = 0.1
     velocity_profile_position_bin = 5
-    simulation_number = 1
+    simulation_number = 3
     simulation_name = f"simulation_{simulation_number}"
     globals_config_path = "configs/globals.py"
     simulation_config_path = f"configs/simulation_{simulation_number}.py"

@@ -778,3 +778,47 @@ class Tissue:
             return np.nan
 
 
+    def apply_vertical_cut(self, cut_x: float, row_start: int = 0, row_end: int = None):
+        """
+        Apply a vertical cut at a specific column index `cut_col`,
+
+        Edges are removed from the graph, and any cell that contains both
+        endpoints of such an edge is removed from self.cells.
+        """
+        if row_end is None:
+            row_end = self.num_rows
+
+        edges_to_remove = []
+        cells_to_remove = set()
+
+        for u, v in list(self.graph.edges):
+            col_u = self.graph.nodes[u]['col']
+            col_v = self.graph.nodes[v]['col']
+            row_u = self.graph.nodes[u]['row']
+            row_v = self.graph.nodes[v]['row']
+
+            # Edge must be crossed by the cut column
+            crosses_col = (col_u < cut_x and col_v >= cut_x) or (col_v < cut_x and col_u >= cut_x)
+
+            # At least one vertex must be in the vertical range
+            in_row_range = (row_start <= row_u < row_end) or (row_start <= row_v < row_end)
+
+            if crosses_col and in_row_range:
+                edges_to_remove.append((u, v))
+
+                # Remove any cell that contains this edge
+                for cell in self.cells:
+                    if u in cell.nodes and v in cell.nodes:
+                        cells_to_remove.add(cell)
+
+        # Remove edges
+        self.graph.remove_edges_from(edges_to_remove)
+
+        # Remove cells
+        for cell in cells_to_remove:
+            if cell in self.cells:
+                self.cells.remove(cell)
+
+        print(f"Vertical cut at col={cut_x}, rows {row_start}–{row_end}:")
+        print(f" - Removed {len(edges_to_remove)} edges")
+        print(f" - Removed {len(cells_to_remove)} cells")
