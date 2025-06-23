@@ -162,7 +162,8 @@ def run_simulation(T:tissue.Tissue,                  # tissue object
                    output_dir='',                    # output directory for saving frames
                    save_frame_interval = 10,         # save frame every x timestamps
                    velocity_profile_position_bin=1,  # bin size for velocity profile
-                   show_velocity_field=False):       # whether to show velocity field in the tisssue plot
+                   show_velocity_field=False,        # whether to show velocity field in the tisssue plot
+                   do_cut = True):                   # if we want to cut the tissue at t == 10
 
     
     # init empty stacks
@@ -194,7 +195,7 @@ def run_simulation(T:tissue.Tissue,                  # tissue object
         print(f"\n---------------------Time {t}---------------------")
 
         # --- Apply cut only once at t == 10 ---
-        if t == 10:
+        if t == 10 and do_cut == True:
             cut_x = T.num_cols // 4  # or any specific col you want
             row_start, row_end = 0, T.num_rows
             T.apply_vertical_cut(cut_x=cut_x, row_start=row_start, row_end=row_end)
@@ -341,7 +342,7 @@ def convergence_plots():
 
 
 
-def simulation(time_limit, save_frame_interval, dt, globals_config_path, simulation_config_path, morphology_config_path, simulation_name, velocity_profile_position_bin, pertubation=False, show_velocity_field=False, rm_frames = True):
+def simulation(time_limit, save_frame_interval, dt, globals_config_path, simulation_config_path, morphology_config_path, simulation_name, velocity_profile_position_bin, pertubation=False, show_velocity_field=False, rm_frames = True, do_cut=True):
 
     # sanity check orints
     print(f"Simulation Parameters: {simulation_name}")
@@ -371,7 +372,7 @@ def simulation(time_limit, save_frame_interval, dt, globals_config_path, simulat
 
     # run simulation
     title = runpy.run_path(simulation_config_path)["description"]
-    result_dict = run_simulation(T=T, time_limit=time_limit, title = title,  velocity_profile_position_bin=velocity_profile_position_bin, output_dir=output_dir, dt=dt, save_frame_interval=save_frame_interval, show_velocity_field=show_velocity_field)
+    result_dict = run_simulation(T=T, time_limit=time_limit, title = title,  velocity_profile_position_bin=velocity_profile_position_bin, output_dir=output_dir, dt=dt, save_frame_interval=save_frame_interval, show_velocity_field=show_velocity_field, do_cut= do_cut)
     
     # create video
     replay_simulation(frames_dir=os.path.join(output_dir, "frames"), simulation_name=simulation_name)
@@ -418,8 +419,9 @@ if __name__ == "__main__":
     simulation_config_path = f"configs/simulation_{simulation_number}.py"
     morphology_config_path = "configs/morphology_config.py"
     show_velocity_field = True
+    do_cut = True
 
-    simulation(time_limit, save_frame_interval, dt, globals_config_path, simulation_config_path, morphology_config_path, simulation_name, velocity_profile_position_bin, pertubation=False, show_velocity_field=show_velocity_field, rm_frames = True)
+    simulation(time_limit, save_frame_interval, dt, globals_config_path, simulation_config_path, morphology_config_path, simulation_name, velocity_profile_position_bin, pertubation=False, show_velocity_field=show_velocity_field, rm_frames = True, do_cut = do_cut)
 
 
 
