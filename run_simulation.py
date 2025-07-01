@@ -1,4 +1,3 @@
-
 from configs.run_config import *
 import tissue
 from configs.imports import *
@@ -90,8 +89,6 @@ def plot_velocity_profile(ax, position, velocity, x_lim = None, y_lim = None):
     else:
         ax.set_ylim(-1.5, 1.5)
     
-
-
 def plot_vx_border(simulation_name: str, vx_series: list[float]):
     """
     Plot mean absolute x-velocity of the inner border layer over time and save to file.
@@ -124,7 +121,6 @@ def plot_vx_vs_time(simulation_name: str, vx_series: list[float], y_label:str = 
     output_path = os.path.join('results', simulation_name, f"{fig_label}_plot.png")
     plt.savefig(output_path)
     plt.close()
-
 
 # add some pertubations to check plotting
 def add_pertubation(T:tissue.Tissue):
@@ -233,7 +229,7 @@ def run_simulation(T:tissue.Tissue,                  # tissue object
     velocities = [np.array(vp[1]) for vp in velocity_profiles]
     vx_inner_border = np.array(vx_border_layer_series)
     res = {'energy': np.array(energies),
-           'areaL': np.array(area_percs),
+           'area': np.array(area_percs),
            'velocity_profile_position': positions,
            'velocity_profile_velocity': velocities,
            'vx_inner_border' : vx_inner_border,
@@ -244,8 +240,6 @@ def run_simulation(T:tissue.Tissue,                  # tissue object
     # save results
     with open(os.path.join(output_dir, "..", "results.pkl"), 'wb') as f:
         pickle.dump(res, f)
-
-    
 
     return res
 
@@ -292,7 +286,6 @@ def plot_energy_graph(simulation_name, total_energy, save_graph:bool = False):
         plt.savefig(output_path)
     else:
         plt.show()
-
 
 def convergence_plots():
     dts = [i for i in range(6,7)]

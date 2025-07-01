@@ -1,5 +1,5 @@
 """"
-    The inner border of the window of the non-neurons have cpnstant force to "push outwards" from the center of the window.  
+    The inner border of the window of the non-neurons have constant force to "push outwards" from the center of the window.  
     This border of cells should pull other non-nurons outwards.
 """
 
@@ -20,7 +20,7 @@ non_neuron_spring_constant_internal = 1     # spring between opposite vertices o
 line_tension_constant = 0.1                 # causes neurons to shrink
 
 # push out param
-min_push_out_force = 0.1                   # minimum force to push outwards
-push_out_decay_type = 'constant'              # lin, exp or constant
+min_push_out_force = 0.1                    # minimum force to push outwards
+push_out_decay_type = 'constant'            # lin, exp or constant
 push_out_decay_constant_lin = 0.000001      
 push_out_decay_constant_exp = 0.000001

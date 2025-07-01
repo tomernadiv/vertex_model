@@ -822,3 +822,25 @@ class Tissue:
         print(f"Vertical cut at col={cut_x}, rows {row_start}–{row_end}:")
         print(f" - Removed {len(edges_to_remove)} edges")
         print(f" - Removed {len(cells_to_remove)} cells")
+
+
+    def force_constants_change(self, d):
+        """
+        Changes constants to run pertubations.
+        """
+        for key, value in d.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+                self.config_dict[key] = value
+            else:
+                print(f"Warning: '{key}' is not an existing attribute.")
+
+        if 'expansion_const' in d:
+            self.non_neuron_internal_rest_length = 2 * self.cell_initial_vertex_length * self.expansion_const
+            self.non_neuron_marginal_rest_length = self.cell_initial_vertex_length * self.expansion_const
+
+        if 'shrinking_const' in d:
+            self.internal_rest_length = 2 * self.cell_initial_vertex_length * self.shrinking_const
+            self.marginal_rest_length = self.cell_initial_vertex_length * self.shrinking_const
+
+
