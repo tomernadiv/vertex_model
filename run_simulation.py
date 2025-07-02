@@ -3,6 +3,7 @@ from configs.run_config import *
 import tissue
 from configs.imports import *
 from neuron_initiation import get_frame_bounds_from_index
+import json
 
 # plotting function
 def plot_timestamp(T: tissue, t: int, title, energy, total_area, window_area, position, velocity, time_limit,
@@ -238,9 +239,53 @@ def run_simulation(T:tissue.Tissue,                  # tissue object
     with open(os.path.join(output_dir, "..", "results.pkl"), 'wb') as f:
         pickle.dump(res, f)
 
-    
-
     return res
+
+
+def run_only_for_window_size(T:tissue.Tissue,                  # tissue object
+                   time_limit:int,                   # number of timestamps
+                   title:str,
+                   dt=0.1,                           # time step  
+                   output_dir='',                    # output directory for saving frames
+                   save_frame_interval = 10,         # save frame every x timestamps
+                   velocity_profile_position_bin=1,  # bin size for velocity profile
+                   show_velocity_field=False):       # whether to show velocity field in the tisssue plot
+
+    
+    # init empty stacks
+    area_percs = []
+
+
+    #init area
+    initial_window_area = T.compute_total_area(window_only=True)
+    area_percs.append(100)
+
+    # create outdir
+    output_dir = os.path.join(output_dir, "frames")
+    os.makedirs(output_dir, exist_ok=True)
+
+    max_at_10 = 0
+    # iterate overthe graph
+    for t in range(0, time_limit+1):
+        print(f"\n---------------------Time {t}---------------------")
+
+
+        if t == 10:
+            # compute velocities
+            T.compute_all_velocities()
+            # compute velocity profile
+            _ , velocity = T.calculate_velocity_profile(bin_length=velocity_profile_position_bin)
+            max_at_10 = max(abs(velocity))   
+
+        # Update for next iteration
+        T.compute_all_forces()
+        T.update_positions(dt=dt)
+        T.update_heights()
+
+        # add to stacjs
+        area_percs.append((T.compute_total_area(window_only=True)/initial_window_area) * 100)
+
+    return area_percs[-1], max_at_10
 
 def replay_simulation(frames_dir, simulation_name: str, fps: int = 2):
 
@@ -398,23 +443,88 @@ def simulation(time_limit, save_frame_interval, dt, globals_config_path, simulat
     sys.stdout = original_stdout
     print("Done.")
 
+def simulation_only_for_window_size(time_limit, save_frame_interval, dt, globals_config_path, simulation_config_path, morphology_config_path, simulation_name, velocity_profile_position_bin, pertubation=False, show_velocity_field=False, rm_frames = True):
+
+    # sanity check orints
+    print(f"Simulation Parameters: {simulation_name}")
+    print(f"dt: {dt}")
+    print(f"time_limit: {time_limit}")
+    print(f"save_frame_interval: {save_frame_interval}")
+
+
+    T = tissue.Tissue(globals_config_path = globals_config_path, simulation_config_path = simulation_config_path, morphology_config_path = morphology_config_path)
+
+
+    # add pertubations if needed
+    if pertubation:
+        add_pertubation(T)
+    
+    # check if saving folder exists, if it is, erase it
+    output_dir = os.path.join('results', simulation_name)
+    if os.path.exists(output_dir):
+        import shutil
+        shutil.rmtree(output_dir)
+    os.makedirs(output_dir)
+
+    # redirect stdout to log file
+    original_stdout = sys.stdout
+    log_file = open(os.path.join(output_dir, "log.txt"), "w", buffering=save_frame_interval)
+    sys.stdout = log_file
+
+    # run simulation
+    title = runpy.run_path(simulation_config_path)["description"]
+    last_window_size, max_at_10 = run_only_for_window_size(T=T, time_limit=time_limit, title = title,  velocity_profile_position_bin=velocity_profile_position_bin, output_dir=output_dir, dt=dt, save_frame_interval=save_frame_interval, show_velocity_field=show_velocity_field)
+
+    simulation_consts = runpy.run_path(simulation_config_path)
+    run_info = {
+        "simulation_name": simulation_name,
+        "time_limit": time_limit,
+        "save_frame_interval": save_frame_interval,
+        "dt": dt,
+        "last_window_size": last_window_size,
+        "max_at_10": max_at_10,
+        "shrinking_const": simulation_consts["shrinking_const"],
+        "expansion_const": simulation_consts["expansion_const"],
+        "push_out_force_strength": simulation_consts["push_out_force_strength"],
+    }
+
+    json_path = os.path.join(output_dir, "run_info.json")
+    with open(json_path, 'w') as f:
+        json.dump(run_info, f, indent=4)
+    
+    
+    # redirect stdout back to console
+    log_file.flush()     # flush to disk
+    log_file.close()     
+    sys.stdout = original_stdout
+    print("Done.")
+
+
 
 
 if __name__ == "__main__":
 
+    if len(sys.argv) == 3:
+        full_simulation = sys.argv[1]
+        simulation_number = int(sys.argv[2])
+    else:
+        full_simulation = "True"
+        simulation_number = 1
+    
     time_limit = 100
     save_frame_interval = 10
-    dt = 0.1
+    dt = 0.05
     velocity_profile_position_bin = 5
-    simulation_number = 1
     simulation_name = f"simulation_{simulation_number}"
     globals_config_path = "configs/globals.py"
     simulation_config_path = f"configs/simulation_{simulation_number}.py"
     morphology_config_path = "configs/morphology_config.py"
-    show_velocity_field = True
+    show_velocity_field = False
 
-    simulation(time_limit, save_frame_interval, dt, globals_config_path, simulation_config_path, morphology_config_path, simulation_name, velocity_profile_position_bin, pertubation=False, show_velocity_field=show_velocity_field, rm_frames = True)
-
+    if full_simulation == "True":
+        simulation(time_limit, save_frame_interval, dt, globals_config_path, simulation_config_path, morphology_config_path, simulation_name, velocity_profile_position_bin, pertubation=False, show_velocity_field=show_velocity_field, rm_frames = True)
+    else:
+        simulation_only_for_window_size(time_limit, save_frame_interval, dt, globals_config_path, simulation_config_path, morphology_config_path, simulation_name, velocity_profile_position_bin, pertubation=False, show_velocity_field=show_velocity_field, rm_frames = True)
 
 
     

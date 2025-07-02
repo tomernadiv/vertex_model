@@ -1,0 +1,11 @@
+{
+    "simulation_name": "simulation_3",
+    "time_limit": 100,
+    "save_frame_interval": 10,
+    "dt": 0.05,
+    "last_window_size": 103.77807529975249,
+    "max_at_10": 0.197876295893242,
+    "shrinking_const": 0.9,
+    "expansion_const": 1,
+    "push_out_force_strength": 0.0
+}

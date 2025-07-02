@@ -1,0 +1,3 @@
+# Parameter: push_out_force_strength
+# Format: value	final_window_area	max_velocity_at_10
+2.0	119.59071659217237	0.9718113115276701

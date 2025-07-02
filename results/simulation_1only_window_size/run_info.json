@@ -1,0 +1,10 @@
+{
+    "simulation_name": "simulation_1only_window_size",
+    "time_limit": 10,
+    "save_frame_interval": 2,
+    "dt": 0.1,
+    "last_window_size": 100.0,
+    "shrinking_const": 1,
+    "expansion_const": 1.0,
+    "push_out_force_strength": 0.0
+}

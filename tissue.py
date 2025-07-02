@@ -133,6 +133,7 @@ class Tissue:
 
         # save globals as attribute
         self.config_dict = combined_namespace
+        
 
 
     def _init_cell(self, row, col):
@@ -282,7 +283,8 @@ class Tissue:
             node_keys = cell.get_nodes()
             node_positions = [self.graph.nodes[key]['pos'] for key in node_keys]
             
-            color_map = self.inner_border_cmap if cell.inner_border[0] else darker_cmap
+            #color_map = self.inner_border_cmap if cell.inner_border[0] else darker_cmap
+            color_map = darker_cmap
 
             val = get_func(cell)
             val = max(val, 1e-6)
@@ -301,35 +303,7 @@ class Tissue:
             cbar.set_label(f'{param}', rotation=90, labelpad=10)
             cbar.ax.tick_params(labelsize=8)
 
-    # # old coloring method using log scale
-    # def _coloring_by_value(self, center_value, get_func, ax, area=True, colorbar=True, factor=2):
-    #     log_center = np.log10(center_value)
-    #     log_min = np.log10(center_value / factor) if center_value / factor > 0 else log_center - 1
-    #     log_max = np.log10(center_value * factor) if center_value * factor > 0 else log_center + 1
 
-    #     # Use TwoSlopeNorm to center the colormap on center_value
-    #     norm = colors.TwoSlopeNorm(vmin=log_min, vcenter=log_center, vmax=log_max)
-
-    #     for cell in self.cells:
-    #         node_keys = cell.get_nodes()
-    #         node_positions = [self.graph.nodes[key]['pos'] for key in node_keys]
-    #         color_map = self.neurons_cmap if cell.is_neuron() else self.non_neurons_cmap
-    #         color_map = self.inner_border_cmap if cell.inner_border[0] else color_map
-
-    #         val = get_func(cell)
-    #         log_val = np.log10(max(val, 1e-6))
-
-    #         color = cm.get_cmap(color_map)(norm(log_val))
-    #         ax.fill(*zip(*node_positions), color=color, alpha=0.5)
-
-    #     # add colorbar
-    #     if colorbar:
-    #         param = 'Area' if area else 'Height'
-    #         sm = cm.ScalarMappable(cmap=cm.get_cmap(self.neurons_cmap), norm=norm)
-    #         sm.set_array([])
-    #         cbar = plt.colorbar(sm, ax=ax, orientation='vertical', pad=0.02, location='left')
-    #         cbar.set_label(f'{param} (log scale)', rotation=90, labelpad=10)
-    #         cbar.ax.tick_params(labelsize=8)
 
 
     def plot_heights_distribution(self, ax=None, bins=30, log_scale=True):
@@ -468,7 +442,9 @@ class Tissue:
         """
         dx, dy, dist = self._get_distances(v1,v2)
         # Avoid division by zero
-        if dist < 1e-3:
+        if dist < 1e-1:
+            print(f"distance of nodes: {v1}, {v2} is almost zero!")
+            return np.array([0.0, 0.0]), np.array([0.0, 0.0])
             raise RuntimeError(f"distance of nodes: {v1}, {v2} is almost zero!")
         
         # get spring constant accorfing to edge type
