@@ -402,7 +402,7 @@ def simulation(time_limit, save_frame_interval, dt, globals_config_path, simulat
 
 if __name__ == "__main__":
 
-    time_limit = 20
+    time_limit = 100
     save_frame_interval = 10
     dt = 0.1
     velocity_profile_position_bin = 5
