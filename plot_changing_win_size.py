@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Configuration
-simulation_number = 3                    # Simulation number
+simulation_number = 2                    # Simulation number
 # target_y = 300                              # Target Y value for horizontal line and root finding
 # y_variable = "final_window_area"            # Choose: "final_window_area" or "max_velocity_at_10"
 
