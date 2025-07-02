@@ -402,17 +402,17 @@ def simulation(time_limit, save_frame_interval, dt, globals_config_path, simulat
 
 if __name__ == "__main__":
 
-    time_limit = 50
+    time_limit = 100
     save_frame_interval = 10
     dt = 0.1
     velocity_profile_position_bin = 5
-    simulation_number = 3
+    simulation_number = 1
     simulation_name = f"simulation_{simulation_number}"
     globals_config_path = "configs/globals.py"
     simulation_config_path = f"configs/simulation_{simulation_number}.py"
     morphology_config_path = "configs/morphology_config.py"
-    show_velocity_field = True
-    do_cut = True
+    show_velocity_field = False
+    do_cut = False
 
     simulation(time_limit, save_frame_interval, dt, globals_config_path, simulation_config_path, morphology_config_path, simulation_name, velocity_profile_position_bin, pertubation=False, show_velocity_field=show_velocity_field, rm_frames = True, do_cut = do_cut)
 

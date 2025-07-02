@@ -122,9 +122,8 @@ class Tissue:
             'cell_volume': cell_volume,
             'cell_initial_vertex_length': cell_initial_vertex_length,
             'cell_initial_surface_area': cell_initial_surface_area,
-            'cell_initial_height': cell_initial_height
+            'cell_initial_height': cell_initial_height,
         })
-
 
         # Assign all variables as self attributes
         for key, value in combined_namespace.items():
@@ -133,6 +132,28 @@ class Tissue:
 
         # save globals as attribute
         self.config_dict = combined_namespace
+
+        # add rest length constants
+        self._add_rest_length_cosnts()
+
+    
+    def _add_rest_length_cosnts(self):
+        added_consts= {
+            'internal_rest_length': 2 * self.cell_initial_vertex_length * self.shrinking_const,
+            'boundary_rest_length': self.cell_initial_vertex_length ,
+            'marginal_rest_length': self.cell_initial_vertex_length * self.shrinking_const,
+            'non_neuron_internal_rest_length': 2 * self.cell_initial_vertex_length * self.expansion_const,
+            'non_neuron_boundary_rest_length': self.cell_initial_vertex_length,
+            'non_neuron_marginal_rest_length': self.cell_initial_vertex_length * self.expansion_const
+            }
+        
+        
+        # add to the config dict and to self
+        for key, value in added_consts.items():
+            setattr(self, key, value)
+            self.config_dict[key] = value
+
+        
 
 
     def _init_cell(self, row, col):
@@ -427,6 +448,7 @@ class Tissue:
                 force_v1 = self.graph.nodes[v1]['force']
                 force_v2 = self.graph.nodes[v2]['force']
                 for force_name in forces:
+
                     # compute force
                     temp_force_v1, temp_force_v2 = self._compute_force(force_name, v1, v2)  
 
@@ -438,6 +460,7 @@ class Tissue:
             
                 self.graph.nodes[v1]['force'] = force_v1
                 self.graph.nodes[v2]['force'] = force_v2
+
         
 
     def update_positions(self, dt=1):
@@ -469,7 +492,8 @@ class Tissue:
         dx, dy, dist = self._get_distances(v1,v2)
         # Avoid division by zero
         if dist < 1e-3:
-            raise RuntimeError(f"distance of nodes: {v1}, {v2} is almost zero!")
+            dist = 1e-3  # Set a minimum distance to avoid division by zero
+            warnings.warn(f"Distance between nodes {v1} and {v2} is almost zero.")
         
         # get spring constant accorfing to edge type
         edge_type = self._get_edge_type(v1, v2)
@@ -827,20 +851,23 @@ class Tissue:
     def force_constants_change(self, d):
         """
         Changes constants to run pertubations.
-        """
+        """ 
         for key, value in d.items():
             if hasattr(self, key):
                 setattr(self, key, value)
                 self.config_dict[key] = value
+                print(f"Changed {key} to {value}")
             else:
                 print(f"Warning: '{key}' is not an existing attribute.")
 
+
         if 'expansion_const' in d:
+            print('Cell initial vertex length:', self.cell_initial_vertex_length)
+
             self.non_neuron_internal_rest_length = 2 * self.cell_initial_vertex_length * self.expansion_const
             self.non_neuron_marginal_rest_length = self.cell_initial_vertex_length * self.expansion_const
 
         if 'shrinking_const' in d:
             self.internal_rest_length = 2 * self.cell_initial_vertex_length * self.shrinking_const
             self.marginal_rest_length = self.cell_initial_vertex_length * self.shrinking_const
-
 
