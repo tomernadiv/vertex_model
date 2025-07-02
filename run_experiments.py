@@ -105,7 +105,7 @@ def grid_search_on_final_area_experiment(simulation_number):
         d = {'push_out_force_strength': np.linspace(1, 7, 20).tolist()}
 
     elif simulation_number == 3:
-        d = {'shrinking_const': [0.3]}
+        d = {'shrinking_const': [0.7, 0.5, 0.3, 0.1]}
 
     # set up results dict
     dependent_var = next(iter(d.keys()))
@@ -225,7 +225,8 @@ def num_layers_vs_final_area(simulation_number):
 
 if __name__ == "__main__":
     simulation_number = int(sys.argv[1]) if len(sys.argv) > 1 else 1
-    grid_search_on_final_area_experiment(simulation_number=simulation_number)
+    # grid_search_on_final_area_experiment(simulation_number=simulation_number)
+    num_layers_vs_final_area(simulation_number=simulation_number)
 
 
 
