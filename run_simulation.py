@@ -26,7 +26,7 @@ def plot_timestamp(T: tissue, t: int, title, energy, total_area, window_area, po
     for frame_index in range(T.num_frames):
         x_start, _ = get_frame_bounds_from_index(frame_index, T.num_cols, T.num_frames)
         window_start = x_start * 1.5 * T.config_dict['cell_radius']
-        ax2.add_patch(patches.Rectangle((window_start + marginal_width, -1.5),
+        ax2.add_patch(patches.Rectangle((window_start + marginal_width, -3),
                                           window_width, 
                                           10, 
                                           color='lightgray', 
@@ -40,6 +40,7 @@ def plot_timestamp(T: tissue, t: int, title, energy, total_area, window_area, po
     ax3.set_ylabel("Total Energy", color='tab:red')
     ax3.set_xlim(0, time_limit)
     ax3.set_ylim(energy[0] * 0.3, energy[0] * 1.1)
+    # ax3.set_ylim(energy[0], energy[0] * 2)
     ax3.tick_params(axis='y', labelcolor='tab:red')
     ax3.grid(True)
 
@@ -87,7 +88,7 @@ def plot_velocity_profile(ax, position, velocity, x_lim = None, y_lim = None):
     if y_lim is not None:
         ax.set_ylim(-y_lim, y_lim)
     else:
-        ax.set_ylim(-1.5, 1.5)
+        ax.set_ylim(-3, 3)
     
 def plot_vx_border(simulation_name: str, vx_series: list[float]):
     """

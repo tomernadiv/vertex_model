@@ -235,6 +235,7 @@ class Tissue:
             'green' if self.graph.nodes[node].get("boundary") else 'gray'
             for node in self.graph.nodes
         ]
+
         nx.draw_networkx_nodes(
             self.graph,
             pos,
@@ -251,7 +252,7 @@ class Tissue:
             for node in self.graph.nodes:
                 x, y = self.graph.nodes[node]['pos']
                 vx, vy = self.graph.nodes[node]['velocity']
-                ax.quiver(x, y, vx, vy, angles='xy', scale_units='xy', color='yellow', scale=0.8, zorder=15, width = 0.003)
+                ax.quiver(x, y, vx, vy, angles='xy', scale_units='xy', color='green', scale=0.8, zorder=15, width = 0.003)
 
          
         # Dynamically get cell attribute method
@@ -303,7 +304,8 @@ class Tissue:
             node_keys = cell.get_nodes()
             node_positions = [self.graph.nodes[key]['pos'] for key in node_keys]
             
-            color_map = self.inner_border_cmap if cell.inner_border[0] else darker_cmap
+            # color_map = self.inner_border_cmap if cell.inner_border[0] else darker_cmap
+            color_map = darker_cmap
 
             val = get_func(cell)
             val = max(val, 1e-6)

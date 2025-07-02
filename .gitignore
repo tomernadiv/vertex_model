@@ -183,3 +183,4 @@ cython_debug/
 log.txt
 *.mp4
 *.pkl
+*.out
