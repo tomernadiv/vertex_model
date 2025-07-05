@@ -7,7 +7,7 @@ import json
 
 # plotting function
 def plot_timestamp(T: tissue, t: int, title, energy, total_area, window_area, position, velocity, time_limit,
-                   output_dir=None, show_velocity_field: bool = False, show: bool = False):
+                   output_dir=None, show_velocity_field: bool = False, show: bool = False, max_velocity: float = None):
     fig = plt.figure(figsize=(14, 8))
     gs = gridspec.GridSpec(2, 2, width_ratios=[2.5, 1])
 
@@ -18,7 +18,7 @@ def plot_timestamp(T: tissue, t: int, title, energy, total_area, window_area, po
 
     # Velocity profile (top right)
     ax2 = fig.add_subplot(gs[0, 1])
-    plot_velocity_profile(ax2, position, velocity, x_lim=T.num_cols * 1.5 * T.config_dict['cell_radius'] + 1)
+    plot_velocity_profile(ax2, position, velocity, x_lim=T.num_cols * 1.5 * T.config_dict['cell_radius'] + 1, y_lim=max_velocity)
 
 
     # add 2 light gray rectangles to indicate the area of the windows
@@ -58,11 +58,11 @@ def plot_timestamp(T: tissue, t: int, title, energy, total_area, window_area, po
              transform=ax1.transAxes,
              fontsize=14, bbox=dict(facecolor='yellow', alpha=0.9, boxstyle='round', zorder=10))
     
-    ax1.text(0.4, -0.05, f"Total Area: {total_area:.1f}%",
-             transform=ax1.transAxes,
-             fontsize=14, bbox=dict(facecolor='yellow', alpha=0.9, boxstyle='round', zorder=10))
+    # ax1.text(0.4, -0.05, f"Total Area: {total_area:.1f}%",
+    #          transform=ax1.transAxes,
+    #          fontsize=14, bbox=dict(facecolor='yellow', alpha=0.9, boxstyle='round', zorder=10))
 
-    ax1.text(0.75, -0.05, f"Window Area: {window_area[-1]:.3f}%",
+    ax1.text(0.5, -0.05, f"Window Area: {window_area[-1]:.3f}%",
              transform=ax1.transAxes,
              fontsize=14, bbox=dict(facecolor='yellow', alpha=0.9, boxstyle='round', zorder=10))
 
@@ -87,7 +87,7 @@ def plot_velocity_profile(ax, position, velocity, x_lim = None, y_lim = None):
         ax.set_xlim(0, x_lim)
 
     if y_lim is not None:
-        ax.set_ylim(-y_lim, y_lim)
+        ax.set_ylim(-1 * y_lim, y_lim)
     else:
         ax.set_ylim(-1.5, 1.5)
     
@@ -125,7 +125,6 @@ def plot_vx_vs_time(simulation_name: str, vx_series: list[float], y_label:str = 
     output_path = os.path.join('results', simulation_name, f"{fig_label}_plot.png")
     plt.savefig(output_path)
     plt.close()
-
 
 # add some pertubations to check plotting
 def add_pertubation(T:tissue.Tissue):
@@ -204,6 +203,9 @@ def run_simulation(T:tissue.Tissue,                  # tissue object
         # calculate mean velocity of inner bound layer
         vx_border = T.compute_inner_border_x_velocity_middle_band()
         vx_border_layer_series.append(vx_border)
+
+        if t == 0:
+            max_velocity = max(abs(velocity))
         
 
         # plot timestamp
@@ -212,7 +214,8 @@ def run_simulation(T:tissue.Tissue,                  # tissue object
                            window_area=area_percs, position=position,
                            velocity=velocity, time_limit=time_limit,
                            output_dir=output_dir,
-                           show_velocity_field=show_velocity_field)
+                           show_velocity_field=show_velocity_field,
+                           max_velocity=max_velocity)
         # Update for next iteration
         T.compute_all_forces()
         T.update_positions(dt=dt)
@@ -241,8 +244,7 @@ def run_simulation(T:tissue.Tissue,                  # tissue object
 
     return res
 
-
-def run_only_for_window_size(T:tissue.Tissue,                  # tissue object
+def run_only_for_window_size(T:tissue.Tissue,                  # tissue objects
                    time_limit:int,                   # number of timestamps
                    title:str,
                    dt=0.1,                           # time step  
@@ -252,13 +254,8 @@ def run_only_for_window_size(T:tissue.Tissue,                  # tissue object
                    show_velocity_field=False):       # whether to show velocity field in the tisssue plot
 
     
-    # init empty stacks
-    area_percs = []
-
-
     #init area
     initial_window_area = T.compute_total_area(window_only=True)
-    area_percs.append(100)
 
     # create outdir
     output_dir = os.path.join(output_dir, "frames")
@@ -268,7 +265,6 @@ def run_only_for_window_size(T:tissue.Tissue,                  # tissue object
     # iterate overthe graph
     for t in range(0, time_limit+1):
         print(f"\n---------------------Time {t}---------------------")
-
 
         if t == 10:
             # compute velocities
@@ -282,12 +278,12 @@ def run_only_for_window_size(T:tissue.Tissue,                  # tissue object
         T.update_positions(dt=dt)
         T.update_heights()
 
-        # add to stacjs
-        area_percs.append((T.compute_total_area(window_only=True)/initial_window_area) * 100)
+    # compute final area
+    final_window_area = (T.compute_total_area(window_only=True)/initial_window_area) * 100
 
-    return area_percs[-1], max_at_10
+    return final_window_area, max_at_10
 
-def replay_simulation(frames_dir, simulation_name: str, fps: int = 2):
+def replay_simulation(frames_dir, simulation_name: str, fps: int = 4):
 
     if not os.path.exists(frames_dir):
         raise FileNotFoundError(f"Could not find frames directory at {frames_dir}")
@@ -330,7 +326,6 @@ def plot_energy_graph(simulation_name, total_energy, save_graph:bool = False):
         plt.savefig(output_path)
     else:
         plt.show()
-
 
 def convergence_plots():
     dts = [i for i in range(6,7)]
@@ -377,8 +372,6 @@ def convergence_plots():
     ax.set_title("Average (and STD) of Energy Amplitude as Function of dt")
     ax.grid(True)
     plt.savefig('amplitude_plot2.png')
-
-
 
 def simulation(time_limit, save_frame_interval, dt, globals_config_path, simulation_config_path, morphology_config_path, simulation_name, velocity_profile_position_bin, pertubation=False, show_velocity_field=False, rm_frames = True):
 
@@ -453,7 +446,7 @@ def simulation_only_for_window_size(time_limit, save_frame_interval, dt, globals
 
 
     T = tissue.Tissue(globals_config_path = globals_config_path, simulation_config_path = simulation_config_path, morphology_config_path = morphology_config_path)
-
+    initial_area = T.compute_total_area(window_only=False)
 
     # add pertubations if needed
     if pertubation:
@@ -474,6 +467,9 @@ def simulation_only_for_window_size(time_limit, save_frame_interval, dt, globals
     # run simulation
     title = runpy.run_path(simulation_config_path)["description"]
     last_window_size, max_at_10 = run_only_for_window_size(T=T, time_limit=time_limit, title = title,  velocity_profile_position_bin=velocity_profile_position_bin, output_dir=output_dir, dt=dt, save_frame_interval=save_frame_interval, show_velocity_field=show_velocity_field)
+    final_area = T.compute_total_area(window_only=False)
+    final_total_area = (final_area / initial_area) * 100
+
 
     simulation_consts = runpy.run_path(simulation_config_path)
     run_info = {
@@ -486,6 +482,7 @@ def simulation_only_for_window_size(time_limit, save_frame_interval, dt, globals
         "shrinking_const": simulation_consts["shrinking_const"],
         "expansion_const": simulation_consts["expansion_const"],
         "push_out_force_strength": simulation_consts["push_out_force_strength"],
+        'final_total_area': final_total_area,
     }
 
     json_path = os.path.join(output_dir, "run_info.json")
@@ -509,17 +506,17 @@ if __name__ == "__main__":
         simulation_number = int(sys.argv[2])
     else:
         full_simulation = "True"
-        simulation_number = 1
+        simulation_number = sys.argv[1] if len(sys.argv) > 1 else 1
     
-    time_limit = 100
+    time_limit = 500
     save_frame_interval = 10
-    dt = 0.05
+    dt = 0.01
     velocity_profile_position_bin = 5
     simulation_name = f"simulation_{simulation_number}"
     globals_config_path = "configs/globals.py"
     simulation_config_path = f"configs/simulation_{simulation_number}.py"
     morphology_config_path = "configs/morphology_config.py"
-    show_velocity_field = False
+    show_velocity_field = True
 
     if full_simulation == "True":
         simulation(time_limit, save_frame_interval, dt, globals_config_path, simulation_config_path, morphology_config_path, simulation_name, velocity_profile_position_bin, pertubation=False, show_velocity_field=show_velocity_field, rm_frames = True)

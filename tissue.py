@@ -115,6 +115,8 @@ class Tissue:
         cell_initial_vertex_length = cell_radius
         cell_initial_surface_area = 6 * 0.5 * ((cell_radius ** 2) * math.sqrt(3) / 2)
         cell_initial_height = cell_volume / cell_initial_surface_area
+        shrinking_const = combined_namespace['shrinking_const']
+        expansion_const = combined_namespace['expansion_const']
 
         # add all to combined namespace
         combined_namespace.update({
@@ -122,9 +124,14 @@ class Tissue:
             'cell_volume': cell_volume,
             'cell_initial_vertex_length': cell_initial_vertex_length,
             'cell_initial_surface_area': cell_initial_surface_area,
-            'cell_initial_height': cell_initial_height
+            'cell_initial_height': cell_initial_height,
+            'internal_rest_length': 2 * cell_initial_vertex_length * shrinking_const,
+            'boundary_rest_length': cell_initial_vertex_length,
+            'marginal_rest_length': cell_initial_vertex_length * shrinking_const,
+            'non_neuron_internal_rest_length': 2 * cell_initial_vertex_length * expansion_const,
+            'non_neuron_boundary_rest_length': cell_initial_vertex_length,
+            'non_neuron_marginal_rest_length':cell_initial_vertex_length * expansion_const
         })
-
 
         # Assign all variables as self attributes
         for key, value in combined_namespace.items():
@@ -396,6 +403,7 @@ class Tissue:
         
         #  iterate over each unique edge
         for v1, v2 in self.graph.edges:
+                
 
                 # extract forces
                 force_v1 = self.graph.nodes[v1]['force']
@@ -412,7 +420,6 @@ class Tissue:
             
                 self.graph.nodes[v1]['force'] = force_v1
                 self.graph.nodes[v2]['force'] = force_v2
-        
 
     def update_positions(self, dt=1):
         """
@@ -433,8 +440,8 @@ class Tissue:
             new_pos = pos + velocity * dt
             self.graph.nodes[node]['pos'] = tuple(new_pos)
 
-            # update time step
-            self.time_step += 1
+        # update time step
+        self.time_step += 1
 
     def _f_spring(self, v1, v2):
         """
@@ -442,20 +449,18 @@ class Tissue:
         """
         dx, dy, dist = self._get_distances(v1,v2)
         # Avoid division by zero
-        if dist < 1e-1:
+        if dist < 1e-3:
             print(f"distance of nodes: {v1}, {v2} is almost zero!")
             return np.array([0.0, 0.0]), np.array([0.0, 0.0])
-            raise RuntimeError(f"distance of nodes: {v1}, {v2} is almost zero!")
         
         # get spring constant accorfing to edge type
         edge_type = self._get_edge_type(v1, v2)
         spring_constant = self._get_spring_constant(v1, v2, edge_type)
         min_length = getattr(self,f"{edge_type}_min_length")
         rest_length = self._get_rest_length(v1, v2, edge_type)
-
         force_magnitude = spring_constant * (dist - rest_length)
         force_vector = np.array([force_magnitude * dx / dist, force_magnitude * dy / dist])
-
+    
         return force_vector, (force_vector *(-1))
     
     def _get_spring_constant(self, v1, v2, edge_type):
