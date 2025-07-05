@@ -125,10 +125,10 @@ class Tissue:
             'cell_initial_vertex_length': cell_initial_vertex_length,
             'cell_initial_surface_area': cell_initial_surface_area,
             'cell_initial_height': cell_initial_height,
-            'internal_rest_length': 2 * cell_initial_vertex_length * shrinking_const,
+            'internal_rest_length': math.sqrt(3) * cell_initial_vertex_length * shrinking_const,
             'boundary_rest_length': cell_initial_vertex_length,
             'marginal_rest_length': cell_initial_vertex_length * shrinking_const,
-            'non_neuron_internal_rest_length': 2 * cell_initial_vertex_length * expansion_const,
+            'non_neuron_internal_rest_length': math.sqrt(3) * cell_initial_vertex_length * expansion_const,
             'non_neuron_boundary_rest_length': cell_initial_vertex_length,
             'non_neuron_marginal_rest_length':cell_initial_vertex_length * expansion_const
         })
