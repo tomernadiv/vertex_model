@@ -28,7 +28,7 @@ def plot_timestamp(T: tissue, t: int, title, energy, total_area, window_area, po
     for frame_index in range(T.num_frames):
         x_start, _ = get_frame_bounds_from_index(frame_index, T.num_cols, T.num_frames)
         window_start = x_start * 1.5 * T.config_dict['cell_radius']
-        ax2.add_patch(patches.Rectangle((window_start + marginal_width, -1.5),
+        ax2.add_patch(patches.Rectangle((window_start + marginal_width, -3),
                                           window_width, 
                                           10, 
                                           color='lightgray', 
@@ -89,7 +89,7 @@ def plot_velocity_profile(ax, position, velocity, x_lim = None, y_lim = None):
     if y_lim is not None:
         ax.set_ylim(-1 * y_lim, y_lim)
     else:
-        ax.set_ylim(-1.5, 1.5)
+        ax.set_ylim(-3, 3)
     
 
 
@@ -204,8 +204,6 @@ def run_simulation(T:tissue.Tissue,                  # tissue object
         vx_border = T.compute_inner_border_x_velocity_middle_band()
         vx_border_layer_series.append(vx_border)
 
-        if t == 0:
-            max_velocity = max(abs(velocity))
         
 
         # plot timestamp
@@ -214,8 +212,7 @@ def run_simulation(T:tissue.Tissue,                  # tissue object
                            window_area=area_percs, position=position,
                            velocity=velocity, time_limit=time_limit,
                            output_dir=output_dir,
-                           show_velocity_field=show_velocity_field,
-                           max_velocity=max_velocity)
+                           show_velocity_field=show_velocity_field)
         # Update for next iteration
         T.compute_all_forces()
         T.update_positions(dt=dt)
