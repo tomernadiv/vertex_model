@@ -67,9 +67,6 @@ for i in "${!num_layers_values[@]}"; do
     wait $pid
 done
 
-# Reset the number of frames in the config file to 2
-sed -i "s/^${num_frames}[[:space:]]*=[[:space:]]*.*/${num_frames} = 2/" "$config_file"
-
 
 # plot the results
 python plot_window_size_vs_final_area.py "$simulation_num"

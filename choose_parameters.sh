@@ -12,8 +12,8 @@ sim_params[2]="push_out_force_strength"
 sim_params[3]="shrinking_const"
 
 # Possible values for each parameter (manually defined arrays since Bash has no float range)
-expansion_const_values=($(seq 1 0.1 4.0))
-push_out_force_strength_values=($(seq 1.0 0.1 4.0))
+expansion_const_values=($(seq 1 0.05 2.0))
+push_out_force_strength_values=($(seq 0.0 0.25 2.5))
 shrinking_const_values=($(seq 0.05 0.05 1.0))
 
 # Get the parameter name

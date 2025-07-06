@@ -1,6 +1,7 @@
 # folders
 **/frames/
-
+out/
+err/
 
 
 # Byte-compiled / optimized / DLL files

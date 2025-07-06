@@ -411,9 +411,10 @@ def simulation(time_limit, save_frame_interval, dt, globals_config_path, simulat
     plot_vx_vs_time(simulation_name, vx_series=max_velocities, y_label="Max Abs vx")
 
     fig, ax = plt.subplots()
-    max_time_point = np.argmax(max_velocities)
-    max_profile_position = result_dict["velocity_profile_position"][max_time_point]
-    max_profile_velocity = result_dict["velocity_profile_velocity"][max_time_point]
+    velocity_profiles_means = np.mean(np.array(result_dict["velocity_profile_velocity"]), axis=0)
+    max_time_point = np.argmax(velocity_profiles_means)
+    max_profile_position = result_dict["velocity_profile_position"][max_time_point][0]
+    max_profile_velocity = result_dict["velocity_profile_velocity"][max_time_point][1]
     plot_velocity_profile(ax, max_profile_position, max_profile_velocity, 
                           x_lim=T.num_cols * 1.5 * T.config_dict['cell_radius'] + 1, 
                           y_lim=np.max(max_profile_velocity)+0.5)
@@ -506,7 +507,7 @@ if __name__ == "__main__":
         simulation_number = sys.argv[1] if len(sys.argv) > 1 else 1
     
     time_limit = 500
-    save_frame_interval = 10
+    save_frame_interval = 5
     dt = 0.05
     velocity_profile_position_bin = 5
     simulation_name = f"simulation_{simulation_number}"
@@ -518,7 +519,7 @@ if __name__ == "__main__":
     if full_simulation == "True":
         simulation(time_limit, save_frame_interval, dt, globals_config_path, simulation_config_path, morphology_config_path, simulation_name, velocity_profile_position_bin, pertubation=False, show_velocity_field=show_velocity_field, rm_frames = True)
     else:
-        simulation_only_for_window_size(time_limit, save_frame_interval, dt, globals_config_path, simulation_config_path, morphology_config_path, simulation_name, velocity_profile_position_bin, pertubation=False, show_velocity_field=show_velocity_field, rm_frames = True)
+        simulation_only_for_window_size(time_limit, save_frame_interval, dt, globals_config_path, simulation_config_path, morphology_config_path, simulation_name, velocity_profile_position_bin, pertubation=False, show_velocity_field=show_velocity_field, rm_frames = False)
 
 
     

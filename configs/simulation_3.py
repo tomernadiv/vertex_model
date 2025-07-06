@@ -6,10 +6,10 @@
 description = "Neurons Shrink"
 forces = ['spring']
 mu = 1                               # friction coefficient
-shrinking_const = 1.00
+shrinking_const = 0.67
 expansion_const = 1
 inner_border_layers = 1
-push_out_force_strength = 0.67
+push_out_force_strength = 0
 neuron_spring_constant_marginal = 3         # spring between neighbouring vertices
 neuron_spring_constant_boundary = 3         # spring between boundary vertices (vertices with 3 neighbours)
 neuron_spring_constant_internal = 3         # spring between opposite vertices of the same cell
